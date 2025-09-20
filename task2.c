@@ -35,24 +35,12 @@ Image     image;
 Font      fonts[3];
 
 Texture2D textures[4];
-Clay_String texture_names[ARRAY_LEN(textures)] = {
-    CLAY_STRING("Оригинал"),
-    CLAY_STRING("Красный канал"),
-    CLAY_STRING("Зеленый канал"),
-    CLAY_STRING("Синий канал"),
-};
+Clay_String texture_names[ARRAY_LEN(textures)] = {};
 
-Color primary_colors[CHANNEL_COUNT] = {
-    [CHANNEL_RED] = RED,
-    [CHANNEL_GREEN] = GREEN,
-    [CHANNEL_BLUE] = BLUE,
-};
+Color primary_colors[CHANNEL_COUNT] = {};
 
 Histogram histogram_for_all_colors = { .bar_count = 3 };
 Histogram histograms[CHANNEL_COUNT] = {
-    (Histogram) { .color = RED,   .bar_count = 256 },
-    (Histogram) { .color = GREEN, .bar_count = 256 },
-    (Histogram) { .color = BLUE,  .bar_count = 256 },
 };
 
 
@@ -66,6 +54,19 @@ Rectangle pad_bounding_box(Clay_BoundingBox box, float amount);
 
 
 int task2(int argc, char **argv) {
+    texture_names[0] = CLAY_STRING("Оригинал");
+    texture_names[1] = CLAY_STRING("Красный канал");
+    texture_names[2] = CLAY_STRING("Зеленый канал");
+    texture_names[3] = CLAY_STRING("Синий канал");
+
+    primary_colors[CHANNEL_RED] = RED;
+    primary_colors[CHANNEL_GREEN] = GREEN;
+    primary_colors[CHANNEL_BLUE] = BLUE;
+
+    histograms[0] = (Histogram){ .color = RED,   .bar_count = 256 };
+    histograms[1] = (Histogram){ .color = GREEN, .bar_count = 256 };
+    histograms[2] = (Histogram){ .color = BLUE,  .bar_count = 256 };
+
     SetWindowSize(task_window_width, task_window_height);
 
     char *image_path = argc < 2 ? "images/bird.jpg" : argv[1];

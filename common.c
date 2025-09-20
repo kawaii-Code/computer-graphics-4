@@ -11,6 +11,6 @@ const int task_window_width = 800;
 const int task_window_height = 600;
 
 
-const Clay_Color ui_background_color = (Clay_Color) {224, 215, 210, 255};
-const Clay_Color ui_text_color       = (Clay_Color) {168, 66, 28, 255};
-const Clay_Color ui_border_color     = (Clay_Color) {225, 138, 50, 255};
+const Clay_Color ui_background_color = {224, 215, 210, 255};
+const Clay_Color ui_text_color       = {168, 66, 28, 255};
+const Clay_Color ui_border_color     = {225, 138, 50, 255};
