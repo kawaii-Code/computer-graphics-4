@@ -1,0 +1,13 @@
+build/*
+
+third_party/lib/*
+
+# IDE and editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db

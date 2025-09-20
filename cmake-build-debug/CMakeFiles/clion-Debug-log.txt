@@ -1,0 +1,6 @@
+/Applications/CLion.app/Contents/bin/cmake/mac/aarch64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "Unix Makefiles" -S /Users/trcmkr/Личное/Coding/CG/computer-graphics-4 -B /Users/trcmkr/Личное/Coding/CG/computer-graphics-4/cmake-build-debug
+CMake Error at CMakeLists.txt:1 (cmake_minimum_required):
+  CMake 4.1.1 or higher is required.  You are running version 3.29.6
+
+
+-- Configuring incomplete, errors occurred!

@@ -2,22 +2,14 @@
 // Выделить из полноцветного изображения каждый из каналов R, G, B и вывести результат.
 // Построить гистограмму по цветам (3 штуки).
 
-#include <third_party/raylib/raylib.h>
 
-#define CLAY_IMPLEMENTATION
-#include <third_party/clay.h>
-#include "clay_renderer_raylib.c"
+#include "common.c"
+#include "third_party/include/raylib.h"
 
 
 #define ARRAY_LEN(array) (sizeof(array) / sizeof(*array))
 
 
-const Clay_Color ui_background_color = (Clay_Color) {224, 215, 210, 255};
-const Clay_Color ui_text_color       = (Clay_Color) {168, 66, 28, 255};
-const Clay_Color ui_border_color     = (Clay_Color) {225, 138, 50, 255};
-
-const int   default_window_width = 800;
-const int   default_window_height = 600;
 const char *window_title = "Лаба 2 Задание 2: RGB";
 
 typedef enum {
@@ -64,7 +56,7 @@ Histogram histograms[CHANNEL_COUNT] = {
 };
 
 
-void init();
+// void init();
 void read_input();
 void draw_ui();
 void draw_histogram_for_all_colors(Histogram histogram);
@@ -73,8 +65,8 @@ Histogram make_smaller_histogram(Histogram histogram, int ratio);
 Rectangle pad_bounding_box(Clay_BoundingBox box, float amount);
 
 
-int main(int argc, char **argv) {
-    init();
+int task2(int argc, char **argv) {
+    SetWindowSize(task_window_width, task_window_height);
 
     char *image_path = argc < 2 ? "images/bird.jpg" : argv[1];
     image = LoadImage(image_path);
@@ -144,32 +136,33 @@ int main(int argc, char **argv) {
 
         EndDrawing();
     }
+
+    SetWindowSize(menu_window_width, menu_window_height);
 }
 
-void init() {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
-    InitWindow(default_window_width, default_window_height, window_title);
-
-    uint64_t total_memory_size = Clay_MinMemorySize();
-    Clay_Arena arena = Clay_CreateArenaWithCapacityAndMemory(total_memory_size, malloc(total_memory_size));
-    Clay_Initialize(arena, (Clay_Dimensions) { default_window_width, default_window_height }, (Clay_ErrorHandler){ NULL });
-
-    fonts[FONT_FOR_DEBUG_WINDOW] = LoadFontEx("fonts/jetbrains-mono.ttf", 16, 0, 0);
-
-    int codepoints[512] = {0};
-    int count = 0;
-    // ASCII
-    for (int i = 0x00; i <= 0x7F; i++) {
-        codepoints[count++] = i;
-    }
-    // UTF8 Кириллица
-    for (int i = 0x400; i <= 0x4FF; i++) {
-        codepoints[count++] = i;
-    }
-    fonts[FONT_MAIN] = LoadFontEx("fonts/jetbrains-mono.ttf", 32, codepoints, count);
-
-    Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts);
-}
+// void init() {
+//     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
+//
+//     uint64_t total_memory_size = Clay_MinMemorySize();
+//     Clay_Arena arena = Clay_CreateArenaWithCapacityAndMemory(total_memory_size, malloc(total_memory_size));
+//     Clay_Initialize(arena, (Clay_Dimensions) { task_window_width, task_window_height }, (Clay_ErrorHandler){ NULL });
+//
+//     fonts[FONT_FOR_DEBUG_WINDOW] = LoadFontEx("fonts/jetbrains-mono.ttf", 16, 0, 0);
+//
+//     int codepoints[512] = {0};
+//     int count = 0;
+//     // ASCII
+//     for (int i = 0x00; i <= 0x7F; i++) {
+//         codepoints[count++] = i;
+//     }
+//     // UTF8 Кириллица
+//     for (int i = 0x400; i <= 0x4FF; i++) {
+//         codepoints[count++] = i;
+//     }
+//     fonts[FONT_MAIN] = LoadFontEx("fonts/jetbrains-mono.ttf", 32, codepoints, count);
+//
+//     Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts);
+// }
 
 void read_input() {
     float delta_time = GetFrameTime();
