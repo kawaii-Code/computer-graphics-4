@@ -17,6 +17,7 @@
 // https://www.raylib.com/cheatsheet/cheatsheet.html
 //
 // И на официальном сайте много примеров
+// слишком многа букав, не осилил
 
 #include <stdio.h>
 #include <stdint.h>
@@ -27,6 +28,7 @@
 #include "third_party/include/clay.h"
 #include "third_party/include/raylib.h"
 #include "third_party/include/raygui.h"
+#include "third_party/include/raymath.h"
 
 
 #define TO_CLAY_COLOR(color) ((Clay_Color){ .r = color.r, .b = color.b, .g = color.g, .a = color.a })
@@ -67,6 +69,7 @@ extern Font fonts[FONT_COUNT];
 
 // Возможно полезные функции
 bool        Button(Rectangle bounds, const char *text);
+void        DropdownMenu(Rectangle bounds, int* selectedOption, bool* showDropdown, const char** options, void (*func)(int));
 Window_Info get_window_info();
 void        draw_text_centered(Font font, const char *text, float x, float y, Color color);
 void        draw_texture_centered(Texture2D texture, float x, float y);

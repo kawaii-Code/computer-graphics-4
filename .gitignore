@@ -1,5 +1,7 @@
 build/*
 
+cmake-build-*
+
 third_party/lib/*
 
 # IDE and editor settings

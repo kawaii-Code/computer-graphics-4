@@ -27,15 +27,15 @@ int main(int argc, char **argv) {
         BeginDrawing();
         ClearBackground(ui_background_color);
 
-        if (Button(btn1, "Task 1")) {
+        if (Button(btn1, "Задание 1")) {
             task1(argc, argv);
         }
 
-        if (Button(btn2, "Task 2")) {
+        if (Button(btn2, "Задание 2")) {
             task2(argc, argv);
         }
 
-        if (Button(btn3, "Task 3")) {
+        if (Button(btn3, "Задание 3")) {
             task3(argc, argv);
         }
 
@@ -79,12 +79,36 @@ bool Button(Rectangle bounds, const char *text) {
     DrawRectangleLinesEx(bounds, 2, BLACK);
 
     int fontSize = 20;
-    Vector2 textSize = MeasureTextEx(GetFontDefault(), text, fontSize, 1);
-    DrawText(text,
-             bounds.x + (bounds.width - textSize.x) / 2,
-             bounds.y + (bounds.height - textSize.y) / 2,
-             fontSize,
-             BLACK);
+    Vector2 textSize = MeasureTextEx(fonts[FONT_MAIN], text, fontSize, 1);
+    DrawTextEx(fonts[FONT_MAIN], text,
+        (Vector2){ .x = bounds.x + (bounds.width - textSize.x) / 2,.y = bounds.y + (bounds.height - textSize.y) / 2},
+        fontSize,
+        0,
+        BLACK);
 
     return pressed;
+}
+
+void DropdownMenu(Rectangle bounds, int* selectedOption, bool* showDropdown, const char** options, void (*func)(int)) {
+    if (Button((Rectangle){bounds.x, bounds.y, bounds.width, bounds.height}, options[*selectedOption]))
+    {
+        *showDropdown = !*showDropdown;
+    }
+
+    // Show dropdown if button pressed
+    if (*showDropdown)
+    {
+        int button_cnt = 1;
+        for (int i = 0; i < 3; i++)
+        {
+            if (i == *selectedOption) continue;
+            if (Button((Rectangle){bounds.x, bounds.y + button_cnt*50, bounds.width, bounds.height}, options[i]))
+            {
+                *selectedOption = i;
+                *showDropdown = false;
+                func(*selectedOption);
+            }
+            button_cnt++;
+        }
+    }
 }
