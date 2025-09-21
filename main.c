@@ -1,33 +1,51 @@
-#include <stdio.h>
+#include "lab2.h"
 
-#include "common.c"
-#include "task2.c"
-#include "third_party/include/raylib.h"
+#define RAYGUI_IMPLEMENTATION
+#include "third_party/include/raygui.h"
 
-bool Button(Rectangle bounds, const char *text) {
-    Vector2 mouse = GetMousePosition();
-    bool hover = CheckCollisionPointRec(mouse, bounds);
-    bool pressed = hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+Font fonts[FONT_COUNT];
 
-    Color color = hover ? LIGHTGRAY : GRAY;
+int main(int argc, char **argv) {
+    init();
 
-    DrawRectangleRec(bounds, color);
-    DrawRectangleLinesEx(bounds, 2, BLACK);
+    while (!WindowShouldClose()) {
+        Window_Info window = get_window_info();
 
-    int fontSize = 20;
-    Vector2 textSize = MeasureTextEx(GetFontDefault(), text, fontSize, 1);
-    DrawText(text,
-             bounds.x + (bounds.width - textSize.x) / 2,
-             bounds.y + (bounds.height - textSize.y) / 2,
-             fontSize,
-             BLACK);
+        float button_width = 200.0f;
+        float button_height = 50.0f;
+        float button_x = window.center.x - button_width / 2.0f;
+        float button_y = 60.0f;
+        Rectangle btn1 = {button_x, button_y, button_width, button_height};
 
-    return pressed;
+        Rectangle btn2 = btn1;
+        btn2.y += 70.0f;
+        Rectangle btn3 = btn2;
+        btn3.y += 70;
+
+        SetWindowTitle("Лаба 2");
+
+        BeginDrawing();
+        ClearBackground(ui_background_color);
+
+        if (Button(btn1, "Task 1")) {
+            task1(argc, argv);
+        }
+
+        if (Button(btn2, "Task 2")) {
+            task2(argc, argv);
+        }
+
+        if (Button(btn3, "Task 3")) {
+            task3(argc, argv);
+        }
+
+        EndDrawing();
+    }
 }
 
 void init() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
-    InitWindow(menu_window_width, menu_window_height, "Lab 2");
+    InitWindow(menu_window_width, menu_window_height, "Лаба 2");
 
     uint64_t total_memory_size = Clay_MinMemorySize();
     Clay_Arena arena = Clay_CreateArenaWithCapacityAndMemory(total_memory_size, malloc(total_memory_size));
@@ -50,41 +68,23 @@ void init() {
     Clay_SetMeasureTextFunction(Raylib_MeasureText, fonts);
 }
 
+bool Button(Rectangle bounds, const char *text) {
+    Vector2 mouse = GetMousePosition();
+    bool hover = CheckCollisionPointRec(mouse, bounds);
+    bool pressed = hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
 
-int main(int argc, char **argv) {
-    init();
-    SetTargetFPS(60);
+    Color color = hover ? LIGHTGRAY : GRAY;
 
-    Rectangle btn1 = {100, 60, 200, 50};
-    Rectangle btn2 = {100, 130, 200, 50};
-    Rectangle btn3 = {100, 200, 200, 50};
+    DrawRectangleRec(bounds, color);
+    DrawRectangleLinesEx(bounds, 2, BLACK);
 
-    while (!WindowShouldClose()) {
-        // BeginDrawing();
-        // ClearBackground(RAYWHITE);
-        Clay_BeginLayout();
+    int fontSize = 20;
+    Vector2 textSize = MeasureTextEx(GetFontDefault(), text, fontSize, 1);
+    DrawText(text,
+             bounds.x + (bounds.width - textSize.x) / 2,
+             bounds.y + (bounds.height - textSize.y) / 2,
+             fontSize,
+             BLACK);
 
-        CLAY({ .id = CLAY_ID("Menu")})
-
-        if (Button(btn1, "Task 1")) {
-            printf("Task 1 launched!\n");
-            // TODO: replace with actual task
-        }
-
-        if (Button(btn2, "Task 2")) {
-            printf("Task 2 launched!\n");
-            task2(argc, argv);
-        }
-
-        if (Button(btn3, "Task 3")) {
-            printf("Task 3 launched!\n");
-            // TODO: replace with actual task
-        }
-
-        // EndDrawing();
-        Clay_EndLayout();
-    }
-
-    CloseWindow();
-    return 0;
+    return pressed;
 }
