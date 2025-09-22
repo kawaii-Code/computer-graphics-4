@@ -75,7 +75,7 @@ Color hsvToRgb(HSV hsv) {
         (unsigned char)((r + m) * 255),
         (unsigned char)((g + m) * 255),
         (unsigned char)((b + m) * 255),
-        255
+        hsv.a
     };
     return out;
 }
