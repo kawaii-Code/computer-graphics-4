@@ -89,7 +89,7 @@ bool Button(Rectangle bounds, const char *text) {
     return pressed;
 }
 
-void DropdownMenu(Rectangle bounds, int* selectedOption, bool* showDropdown, const char** options, void (*func)(int)) {
+void DropdownMenu(Rectangle bounds, int* selectedOption, bool* showDropdown, int optionsCount, const char** options, void (*func)(int)) {
     if (Button((Rectangle){bounds.x, bounds.y, bounds.width, bounds.height}, options[*selectedOption]))
     {
         *showDropdown = !*showDropdown;
@@ -99,7 +99,7 @@ void DropdownMenu(Rectangle bounds, int* selectedOption, bool* showDropdown, con
     if (*showDropdown)
     {
         int button_cnt = 1;
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < optionsCount; i++)
         {
             if (i == *selectedOption) continue;
             if (Button((Rectangle){bounds.x, bounds.y + button_cnt*50, bounds.width, bounds.height}, options[i]))

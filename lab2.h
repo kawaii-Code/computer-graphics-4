@@ -69,7 +69,7 @@ extern Font fonts[FONT_COUNT];
 
 // Возможно полезные функции
 bool        Button(Rectangle bounds, const char *text);
-void        DropdownMenu(Rectangle bounds, int* selectedOption, bool* showDropdown, const char** options, void (*func)(int));
+void        DropdownMenu(Rectangle bounds, int* selectedOption, bool* showDropdown, int optionsCount, const char** options, void (*func)(int));
 Window_Info get_window_info();
 void        draw_text_centered(Font font, const char *text, float x, float y, Color color);
 void        draw_texture_centered(Texture2D texture, float x, float y);
