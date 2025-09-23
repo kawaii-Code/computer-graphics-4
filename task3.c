@@ -1,6 +1,6 @@
 #include "lab2.h"
 
-const int IMG_COUNT = 4;
+#define IMG_COUNT 4
 
 Image images[IMG_COUNT];
 Texture textures[IMG_COUNT];
