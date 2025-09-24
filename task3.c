@@ -156,10 +156,10 @@ void task3(int argc, char **argv) {
         int sl1 = GuiSlider((Rectangle){50, 450, 200, 20}, "0", "360", &hue, 0, 360);
 
         DrawTextEx(fonts[FONT_MAIN], saturationText, (Vector2){ 300, 420 }, fontSize, 0, BLACK);
-        int sl2 = GuiSlider((Rectangle){300, 450, 200, 20}, "0", "1", &saturation, 0, 1);
+        int sl2 = GuiSlider((Rectangle){300, 450, 200, 20}, "0", "1", &saturation, 0, 2);
 
         DrawTextEx(fonts[FONT_MAIN], brightnessText, (Vector2){ 550, 420 }, fontSize, 0, BLACK);
-        int sl3 = GuiSlider((Rectangle){550, 450, 200, 20}, "0", "1", &brightness, 0, 1);
+        int sl3 = GuiSlider((Rectangle){550, 450, 200, 20}, "0", "1", &brightness, 0, 2);
 
         if (sl1 || sl2 || sl3) {
             for (int i = 0; i < current_texture.width * current_texture.height; i++) {

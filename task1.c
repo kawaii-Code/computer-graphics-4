@@ -114,6 +114,7 @@ void task1(int argc, char** argv) {
             Color color2 = GetImageColor(image2, x, y);
 
             int diff = abs(color1.r - color2.r);
+            diff *= 10;
             Color diff_color = (Color){ diff, diff, diff, color1.a };
             ImageDrawPixel(&diff_image, x, y, diff_color);
         }
