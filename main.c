@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
         Rectangle btn3 = btn2;
         btn3.y += 70;
 
-        SetWindowTitle("Лаба 2");
+        SetWindowTitle("Лаба 3");
 
         BeginDrawing();
         ClearBackground(ui_background_color);
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
 
 void init() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
-    InitWindow(menu_window_width, menu_window_height, "Лаба 2");
+    InitWindow(menu_window_width, menu_window_height, "Лаба 3");
 
     uint64_t total_memory_size = Clay_MinMemorySize();
     Clay_Arena arena = Clay_CreateArenaWithCapacityAndMemory(total_memory_size, malloc(total_memory_size));
