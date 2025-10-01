@@ -32,8 +32,8 @@ bool tool_button(Drawing_Tool tool, int x, int y);
 void int_slider(Rectangle rect, int min, int max, int *value);
 Rectangle shrink_rect(Rectangle rect, float amount);
 bool color_equal(Color a, Color b);
-void fill(Color *pixels, int x, int y, Color color);
-void fill_with_image(Color *pixels, int x, int y, Image image);
+void fill(Color *pixels, int x, int y, Color replaced_color, Color new_color);
+void fill_with_image(Color *pixels, int start_x, int start_y, int x, int y, Color replaced_color, Image image);
 void find_borders(Image *destination, Color *pixels, int x, int y);
 
 
@@ -88,12 +88,22 @@ void task1(int argc, char** argv) {
                 break;
             case BUCKET:
                 if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                    fill((Color *)canvas.data, (int)draw_position.x, (int)draw_position.y, RED);
+                    int x = (int)draw_position.x;
+                    int y = (int)draw_position.y;
+                    Color replaced_color = GetImageColor(canvas, x, y);
+                    Color new_color = RED;
+                    if (!color_equal(replaced_color, new_color)) {
+                        fill((Color *)canvas.data, x, y, replaced_color, RED);
+                    }
                 }
                 break;
             case IMAGE_BUCKET:
                 if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                    fill_with_image((Color *)canvas.data, (int)draw_position.x, (int)draw_position.y, bird);
+                    int x = (int)draw_position.x;
+                    int y = (int)draw_position.y;
+                    Color replaced_color = GetImageColor(canvas, x, y);
+                    memset(visited, false, sizeof(visited));
+                    fill_with_image((Color *)canvas.data, bird.width/2, bird.height/2, x, y, replaced_color, bird);
                 }
                 break;
             case BORDERS:
@@ -289,94 +299,82 @@ void find_borders(Image *destination, Color *pixels, int x, int y) {
     }
 }
 
-void fill_with_image(Color *pixels, int x, int y, Image image) {
-    memset(visited, false, sizeof(visited));
-    int read = 0;
-    int write = 0;
-    int queue_size = 1;
-    queue[0] = (Point) { .x = x, .y = y };
-    while (queue_size > 0) {
-        Point pixel = queue[read];
-        queue_size -= 1;
-        read = (read + 1) % ARRAY_LEN(queue);
+void fill(Color *pixels, int x, int y, Color replaced_color, Color new_color) {
+    int i = y * CANVAS_WIDTH + x;
+    if (!color_equal(pixels[i], replaced_color)) {
+        return;
+    }
 
-        int i = pixel.y * canvas.width + pixel.x;
-
-        if (!(0 <= pixel.x && pixel.x < canvas.width && 0 <= pixel.y && pixel.y < canvas.height)) {
-            continue;
+    int left, right;
+    for (left = x - 1; left >= 0; left--) {
+        if (!color_equal(pixels[y * CANVAS_WIDTH + left], replaced_color)) {
+            left += 1;
+            break;
         }
-        if (visited[i]) {
-            continue;
+    }
+    for (right = x + 1; right < CANVAS_WIDTH; right++) {
+        if (!color_equal(pixels[y * CANVAS_WIDTH + right], replaced_color)) {
+            right -= 1;
+            break;
         }
-        if (color_equal(pixels[i], BLACK)) {
-            continue;
+    }
+
+    left = fmax(left, 0);
+    right = fmin(CANVAS_WIDTH - 1, right);
+
+    for (int col = left; col <= right; col++) {
+        pixels[y * CANVAS_WIDTH + col] = new_color;
+    }
+    for (int col = left; col <= right; col++) {
+        if (y > 0) {
+            fill(pixels, col, y - 1, replaced_color, new_color);
         }
-
-        int image_x = 0;
-        if (pixel.x - x < 0) {
-            image_x = x - pixel.x;
-        } else {
-            image_x = pixel.x - x;
+        if (y < CANVAS_HEIGHT - 1) {
+            fill(pixels, col, y + 1, replaced_color, new_color);
         }
-        int image_y = 0;
-        if (pixel.y - y < 0) {
-            image_y = y - pixel.y;
-        } else {
-            image_y = pixel.y - y;
-        }
-
-        image_x %= image.width;
-        image_y %= image.height;
-
-        pixels[i] = GetImageColor(image, image_x, image_y);
-        visited[i] = true;
-
-        write = (write + 1) % ARRAY_LEN(queue);
-        queue[write] = (Point) { .x = pixel.x - 1, .y = pixel.y };
-        write = (write + 1) % ARRAY_LEN(queue);
-        queue[write] = (Point) { .x = pixel.x + 1, .y = pixel.y };
-        write = (write + 1) % ARRAY_LEN(queue);
-        queue[write] = (Point) { .x = pixel.x, .y = pixel.y - 1 };
-        write = (write + 1) % ARRAY_LEN(queue);
-        queue[write] = (Point) { .x = pixel.x, .y = pixel.y + 1 };
-        queue_size += 4;
     }
 }
 
-void fill(Color *pixels, int x, int y, Color color) {
-    memset(visited, false, sizeof(visited));
-    int read = 0;
-    int write = 0;
-    int queue_size = 1;
-    queue[0] = (Point) { .x = x, .y = y };
-    while (queue_size > 0) {
-        Point pixel = queue[read];
-        queue_size -= 1;
-        read = (read + 1) % ARRAY_LEN(queue);
+void fill_with_image(Color *pixels, int start_x, int start_y, int x, int y, Color replaced_color, Image image) {
+    int i = y * CANVAS_WIDTH + x;
+    if (visited[i]) {
+        return;
+    }
+    visited[i] = true;
+    if (!color_equal(pixels[i], replaced_color)) {
+        return;
+    }
 
-        int i = pixel.y * canvas.width + pixel.x;
-
-        if (!(0 <= pixel.x && pixel.x < canvas.width && 0 <= pixel.y && pixel.y < canvas.height)) {
-            continue;
+    int left, right;
+    for (left = x - 1; left >= 0; left--) {
+        if (!color_equal(pixels[y * CANVAS_WIDTH + left], replaced_color)) {
+            left += 1;
+            break;
         }
-        if (visited[i]) {
-            continue;
+    }
+    for (right = x + 1; right < CANVAS_WIDTH; right++) {
+        if (!color_equal(pixels[y * CANVAS_WIDTH + right], replaced_color)) {
+            right -= 1;
+            break;
         }
-        if (color_equal(pixels[i], BLACK)) {
-            continue;
+    }
+
+    left = fmax(left, 0);
+    right = fmin(CANVAS_WIDTH - 1, right);
+
+    for (int col = left; col <= right; col++) {
+        int image_x = fabsf(start_x - col);
+        int image_y = fabsf(start_y - y);
+        image_x %= image.width;
+        image_y %= image.height;
+        pixels[y * CANVAS_WIDTH + col] = GetImageColor(image, image_x, image_y);
+    }
+    for (int col = left; col <= right; col++) {
+        if (y > 0) {
+            fill_with_image(pixels, start_x, start_y, col, y - 1, replaced_color, image);
         }
-
-        pixels[i] = color;
-        visited[i] = true;
-
-        write = (write + 1) % ARRAY_LEN(queue);
-        queue[write] = (Point) { .x = pixel.x - 1, .y = pixel.y };
-        write = (write + 1) % ARRAY_LEN(queue);
-        queue[write] = (Point) { .x = pixel.x + 1, .y = pixel.y };
-        write = (write + 1) % ARRAY_LEN(queue);
-        queue[write] = (Point) { .x = pixel.x, .y = pixel.y - 1 };
-        write = (write + 1) % ARRAY_LEN(queue);
-        queue[write] = (Point) { .x = pixel.x, .y = pixel.y + 1 };
-        queue_size += 4;
+        if (y < CANVAS_HEIGHT - 1) {
+            fill_with_image(pixels, start_x, start_y, col, y + 1, replaced_color, image);
+        }
     }
 }
