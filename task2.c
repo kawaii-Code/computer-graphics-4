@@ -205,7 +205,7 @@ void task2(int argc, char** argv) {
         }
 
         curMousePos.y = curMousePos.y > maxY ? curMousePos.y : (maxY + width / 2);
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && curMousePos.y > (maxY + width / 2)) {
             curEnd = (ScreenPosition) {curMousePos.x, curMousePos.y};
             isPressed = false;
         }
