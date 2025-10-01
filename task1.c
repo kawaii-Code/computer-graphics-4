@@ -2,6 +2,7 @@
 
 #define CANVAS_WIDTH  800
 #define CANVAS_HEIGHT 600
+#define CANVAS_BACKGROUND_COLOR BLACK
 
 typedef enum {
     PENCIL = 0,
@@ -18,6 +19,12 @@ typedef struct {
     int y;
 } Point;
 
+typedef struct {
+    int x;
+    int y;
+    int direction; // 0 up 1 right 2 down 3 left
+} Node;
+
 
 static Image     canvas;
 static Texture2D tool_textures[TOOL_COUNT];
@@ -25,7 +32,7 @@ static int       tool_button_size = 64;
 static int       selected_tool = PENCIL;
 static int       brush_size = 10;
 static bool      visited[CANVAS_WIDTH * CANVAS_HEIGHT];
-static Point     queue[CANVAS_WIDTH * CANVAS_HEIGHT];
+static Node      queue[CANVAS_WIDTH * CANVAS_HEIGHT];
 
 
 bool tool_button(Drawing_Tool tool, int x, int y);
@@ -41,7 +48,7 @@ void task1(int argc, char** argv) {
     SetWindowTitle("Задание 1");
     ToggleBorderlessWindowed();
 
-    canvas = GenImageColor(CANVAS_WIDTH, CANVAS_HEIGHT, RAYWHITE);
+    canvas = GenImageColor(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_BACKGROUND_COLOR);
     ImageFormat(&canvas, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
     Texture canvas_texture = LoadTextureFromImage(canvas);
 
@@ -78,12 +85,12 @@ void task1(int argc, char** argv) {
             switch (selected_tool) {
             case PENCIL:
                 if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-                    ImageDrawCircleV(&canvas, draw_position, brush_size, BLACK);
+                    ImageDrawCircleV(&canvas, draw_position, brush_size, GREEN);
                 }
                 break;
             case ERASER:
                 if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-                    ImageDrawCircleV(&canvas, draw_position, brush_size, RAYWHITE);
+                    ImageDrawCircleV(&canvas, draw_position, brush_size, CANVAS_BACKGROUND_COLOR);
                 }
                 break;
             case BUCKET:
@@ -155,7 +162,7 @@ void task1(int argc, char** argv) {
         }
         tool_button_x += tool_button_size + 10;
         if (tool_button(CLEAR, tool_button_x, tool_button_y)) {
-            ImageClearBackground(&canvas, RAYWHITE);
+            ImageClearBackground(&canvas, CANVAS_BACKGROUND_COLOR);
             ImageClearBackground(&borders, BLANK);
             UpdateTexture(borders_texture, borders.data);
         }
@@ -172,10 +179,10 @@ void task1(int argc, char** argv) {
         if (CheckCollisionPointRec(GetMousePosition(), canvas_rect)) {
             switch (selected_tool) {
             case PENCIL:
-                DrawCircleV(GetMousePosition(), brush_size, BLACK);
+                DrawCircleV(GetMousePosition(), brush_size, WHITE);
                 break;
             case ERASER:
-                DrawCircleLinesV(GetMousePosition(), brush_size, BLACK);
+                DrawCircleLinesV(GetMousePosition(), brush_size, WHITE);
                 break;
             default:
                 break;
@@ -261,40 +268,77 @@ void find_borders(Image *destination, Color *pixels, int x, int y) {
     ImageClearBackground(destination, BLANK);
     Color *result_pixels = (Color *)destination->data;
 
-    Color border_color = pixels[y * CANVAS_WIDTH + x];
+    Color inside_color = pixels[y * CANVAS_WIDTH + x];
+    int start_x = -1;
+    for (int left = x - 1; left >= 0; left--) {
+        if (!color_equal(pixels[y * CANVAS_WIDTH + left], inside_color)) {
+            start_x = left;
+            break;
+        }
+    }
+
+    Node transitions[8] = {
+        (Node) { .x = -1, .y =  0, .direction = 0 },
+        (Node) { .x = -1, .y =  1, .direction = 1 },
+        (Node) { .x =  0, .y =  1, .direction = 2 },
+        (Node) { .x =  1, .y =  1, .direction = 3 },
+        (Node) { .x =  1, .y =  0, .direction = 4 },
+        (Node) { .x =  1, .y = -1, .direction = 5 },
+        (Node) { .x =  0, .y = -1, .direction = 6 },
+        (Node) { .x = -1, .y = -1, .direction = 7 },
+    };
 
     memset(visited, false, sizeof(visited));
     int read = 0;
     int write = 0;
     int queue_size = 1;
-    queue[0] = (Point) { .x = x, .y = y };
+    queue[0] = (Node) { .x = start_x, .y = y, .direction = 0 };
     while (queue_size > 0) {
-        Point pixel = queue[read];
+        Node node = queue[read];
+        Node pixel = node;
         queue_size -= 1;
         read = (read + 1) % ARRAY_LEN(queue);
 
-        int i = pixel.y * canvas.width + pixel.x;
+        int i = node.y * canvas.width + node.x;
         if (!(0 <= i && i < CANVAS_WIDTH * CANVAS_HEIGHT)) {
             continue;
         }
         if (visited[i]) {
             continue;
         }
-
         visited[i] = true;
 
-        if (color_equal(pixels[i], border_color)) {
-            result_pixels[i] = BLUE;
+        if (color_equal(pixels[i], inside_color)) {
+            continue;
+        }
 
+        bool has_non_border_color_nearby = false;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) {
+                    continue;
+                }
+                Point position = { .x = node.x, .y = node.y };
+                position.x += dx;
+                position.y += dy;
+                if (color_equal(pixels[position.y * CANVAS_WIDTH + position.x], inside_color)) {
+                    has_non_border_color_nearby = true;
+                }
+            }
+        }
+
+        if (!has_non_border_color_nearby) {
+            continue;
+        }
+
+        ImageDrawPixel(destination, node.x, node.y, WHITE);
+        int start = (8 + node.direction - 2) % 8;
+        int end = (8 + start - 5) % 8;
+        for (int i = start; i != end; i = (8 + i - 1) % 8) {
+            Node transition = transitions[i];
             write = (write + 1) % ARRAY_LEN(queue);
-            queue[write] = (Point) { .x = pixel.x - 1, .y = pixel.y };
-            write = (write + 1) % ARRAY_LEN(queue);
-            queue[write] = (Point) { .x = pixel.x + 1, .y = pixel.y };
-            write = (write + 1) % ARRAY_LEN(queue);
-            queue[write] = (Point) { .x = pixel.x, .y = pixel.y - 1 };
-            write = (write + 1) % ARRAY_LEN(queue);
-            queue[write] = (Point) { .x = pixel.x, .y = pixel.y + 1 };
-            queue_size += 4;
+            queue[write] = (Node) { .x = pixel.x + transition.x, .y = pixel.y + transition.y, .direction = (8 + transition.direction - 4) % 8};
+            queue_size += 1;
         }
     }
 }
