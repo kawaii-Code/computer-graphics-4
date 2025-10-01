@@ -98,9 +98,9 @@ void task3(int argc, char** argv) {
     ToggleBorderlessWindowed();
 
     Triangle triangle = {
-        .v1 = {.position = {400, 100}, .color = RED },
-        .v2 = {.position = {200, 500}, .color = GREEN },
-        .v3 = {.position = {600, 500}, .color = BLUE }
+        .v1 = {.position = {400, 100}, .color = YELLOW },
+        .v2 = {.position = {200, 500}, .color = {0,255,255} },
+        .v3 = {.position = {600, 500}, .color = MAGENTA }
     };
 
     bool is_dragging = false;
