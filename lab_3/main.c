@@ -1,74 +1,42 @@
-#include "lab2.h"
-#include "vector.h"
+#include "../lab2.h"
 
 #define RAYGUI_IMPLEMENTATION
-#include "polygon.h"
-#include "third_party/include/raygui.h"
+#include "../third_party/include/raygui.h"
 
 Font fonts[FONT_COUNT];
 
 int main(int argc, char **argv) {
     init();
-    SetWindowSize(task_window_width, task_window_height);
-    Rectangle unclickableArea;
-
-    float button_width = 200.0f;
-    float button_height = 50.0f;
-
-    vector(Polygon) polygons;
-    vector_init(polygons);
-    vector_append(polygons, polygon_create());
 
     while (!WindowShouldClose()) {
         Window_Info window = get_window_info();
 
-        int unclickableAreaHeight = task_window_height / 8;
-        unclickableArea = (Rectangle){0, 0, window.width, unclickableAreaHeight};
+        float button_width = 200.0f;
+        float button_height = 50.0f;
+        float button_x = window.center.x - button_width / 2.0f;
+        float button_y = 60.0f;
+        Rectangle btn1 = {button_x, button_y, button_width, button_height};
 
-        Rectangle btn_clear = {20, unclickableArea.height / 2 - 20, 60, 40};
+        Rectangle btn2 = btn1;
+        btn2.y += 70.0f;
+        Rectangle btn3 = btn2;
+        btn3.y += 70;
+
+        SetWindowTitle("Лаба 3");
 
         BeginDrawing();
         ClearBackground(ui_background_color);
 
-        if (Button(btn_clear, "Clear")) {
-            for (size_t i = 0; i < polygons.len; i++) {
-                polygon_free(polygons.head[i]);
-            }
-            polygons.len = 0;
-            vector_append(polygons, polygon_create());
+        if (Button(btn1, "Задание 1")) {
+            task1(argc, argv);
         }
 
-        DrawLine(0, unclickableArea.height, unclickableArea.width, unclickableArea.height, BLACK);
-
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-            Vector2 mouse_position = GetMousePosition();
-            bool skip = false;
-            if (CheckCollisionPointRec(mouse_position, unclickableArea)) {
-                skip = true;
-            }
-            if (polygon_do_edges_intersect(vector_get(polygons, polygons.len - 1))) {
-                skip = true;
-            }
-            for (size_t i = 0; i < polygons.len; i++) {
-                if (polygon_contains(vector_get(polygons, i), mouse_position)) {
-                    skip = true;
-                    break;
-                }
-            }
-
-            if (!skip) {
-                polygon_add_vertice(vector_get_ptr(polygons, polygons.len - 1), mouse_position);
-            }
-        }
-        if (IsMouseButtonReleased(MOUSE_BUTTON_RIGHT)) {
-            Vector2 mouse_position = GetMousePosition();
-            if (!CheckCollisionPointRec(mouse_position, unclickableArea)) {
-                vector_append(polygons, polygon_create());
-            }
+        if (Button(btn2, "Задание 2")) {
+            task2(argc, argv);
         }
 
-        for (size_t i = 0; i < polygons.len; i++) {
-            polygon_draw(vector_get(polygons, i));
+        if (Button(btn3, "Задание 3")) {
+            task3(argc, argv);
         }
 
         EndDrawing();
@@ -77,7 +45,7 @@ int main(int argc, char **argv) {
 
 void init() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
-    InitWindow(menu_window_width, menu_window_height, "Лаба 4");
+    InitWindow(menu_window_width, menu_window_height, "Лаба 3");
 
     uint64_t total_memory_size = Clay_MinMemorySize();
     Clay_Arena arena = Clay_CreateArenaWithCapacityAndMemory(total_memory_size, malloc(total_memory_size));
