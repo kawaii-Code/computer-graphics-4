@@ -8,8 +8,6 @@ typedef Vector2 Point;
 
 typedef struct Polygon {
     vector(Point) vertices;
-
-    // TODO 3
     bool convex;
 } Polygon;
 
