@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
             if (CheckCollisionPointRec(mouse_position, unclickableArea)) {
                 skip = true;
             }
-            if (polygon_do_edges_intersect(vector_get(polygons, polygons.len - 1))) {
+            if (polygon_do_edges_intersect_new(vector_get(polygons, polygons.len - 1), mouse_position)) {
                 skip = true;
             }
             for (size_t i = 0; i < polygons.len; i++) {

@@ -65,6 +65,22 @@ bool polygon_do_edges_intersect(Polygon p) {
     return false;
 }
 
+bool polygon_do_edges_intersect_new(Polygon p, Point pt) {
+    const VECTOR_TYPE(Point) vert = p.vertices;
+
+    if (vert.len < 3) return false;
+
+    Edge newEdge = (Edge){vector_get(vert, vert.len-1), pt};
+    for (size_t i = 1; i < vert.len; i++) {
+        Edge cur = (Edge){vector_get(vert, i-1), vector_get(vert, i)};
+        if (edge_intersection(newEdge, cur).flag) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // TODO 3
 bool _polygon_contains_convex(Polygon p, Point pt) {
     return false;

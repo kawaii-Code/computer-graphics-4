@@ -20,6 +20,7 @@ void polygon_draw(Polygon p);
 void polygon_add_vertice();
 
 bool polygon_do_edges_intersect(Polygon p);
+bool polygon_do_edges_intersect_new(Polygon p, Point pt);
 bool polygon_contains(Polygon p, Point pt);
 
 #endif //POLYGON_H
