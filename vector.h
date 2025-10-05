@@ -33,16 +33,23 @@
         (vec).head+(vec).len; \
     } while(0)
 
-#define vector_append(vec, ...) _vector_append(vec, typeof((*(vec).head)), __VA_ARGS__)
-#define _vector_append(vec, type, ...) do { \
-        type src_[] = {__VA_ARGS__}; \
-        size_t count_ = sizeof(src_)/sizeof(*src_); \
-        if (count_) { \
-            size_t len_ = (vec).len; \
-            _vector_grow(vec, len_ + count_); \
-            memcpy((vec).head + len_, src_, count_ * sizeof(*(vec).head)); \
-            (vec).len += count_; \
-        } \
+//#define vector_append(vec, ...) _vector_append(vec, typeof((*(vec).head)), __VA_ARGS__)
+//#define _vector_append(vec, type, ...) do { \
+//        type src_[] = {__VA_ARGS__}; \
+//        size_t count_ = sizeof(src_)/sizeof(*src_); \
+//        if (count_) { \
+//            size_t len_ = (vec).len; \
+//            _vector_grow(vec, len_ + count_); \
+//            memcpy((vec).head + len_, src_, count_ * sizeof(*(vec).head)); \
+//            (vec).len += count_; \
+//        } \
+//    } while(0)
+
+#define vector_append(vec, value) do { \
+        size_t len_ = (vec).len; \
+        _vector_grow(vec, len_ + 1); \
+        (vec).head[len_] = (value); \
+        (vec).len++; \
     } while(0)
 
 #define _vector_grow(vec, need) do { \
