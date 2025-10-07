@@ -29,7 +29,7 @@ Matrix3x3 move_transform(float dx, float dy) {
 
 Matrix3x3 rotate_transform(float phi) {
     Matrix3x3 result = matrix_identity();
-    phi *= (2 * M_PI) / 360.0f;
+    phi *= (2 * PI) / 360.0f;
     result.m00 = cosf(phi);
     result.m01 = sinf(phi);
     result.m10 = -sinf(phi);
