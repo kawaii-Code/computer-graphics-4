@@ -56,7 +56,10 @@ int main(int argc, char **argv) {
                 }
             }
 
-            if (!skip) {
+            if (skip) {
+                DrawCircle(mouse_position.x, mouse_position.y, 7, RED);  
+            }
+            else {
                 polygon_add_vertice(vector_get_ptr(polygons, polygons.len - 1), mouse_position);
             }
         }
