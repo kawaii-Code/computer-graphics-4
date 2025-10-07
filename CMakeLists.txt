@@ -12,6 +12,7 @@ add_executable(${PROJECT_NAME}
         polygon.h
         utils.c
         utils.h
+        matrix-transforms.c
 )
 
 file(GLOB RAYLIB_FILES "third_party/lib/*raylib.*")

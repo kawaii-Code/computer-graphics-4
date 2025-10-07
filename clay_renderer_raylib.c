@@ -1,4 +1,4 @@
-#include "lab2.h"
+#include "common.h"
 #include "third_party/include/raymath.h"
 
 #define CLAY_IMPLEMENTATION

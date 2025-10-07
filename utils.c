@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <math.h>
 
 Intersection edge_intersection(Edge e1, Edge e2) {
     float dx1 = e1.p2.x - e1.p1.x, dy1 = e1.p2.y - e1.p1.y;

@@ -1,8 +1,9 @@
-#include "lab2.h"
+#include "common.h"
 #include "vector.h"
+#include "polygon.h"
+#include "matrix-transforms.h"
 
 #define RAYGUI_IMPLEMENTATION
-#include "polygon.h"
 #include "third_party/include/raygui.h"
 
 Font fonts[FONT_COUNT];
@@ -12,8 +13,13 @@ int main(int argc, char **argv) {
     SetWindowSize(task_window_width, task_window_height);
     Rectangle unclickableArea;
 
-    float button_width = 200.0f;
-    float button_height = 50.0f;
+    tool_textures[TRANSFORM_MOVE] = LoadTexture("images/lab4/move.png");
+    tool_textures[TRANSFORM_ROTATE] = LoadTexture("images/lab4/rotate.png");
+    tool_textures[TRANSFORM_ROTATE_AROUND_POINT] = LoadTexture("images/lab4/rotate-around.png");
+    tool_textures[TRANSFORM_SCALE] = LoadTexture("images/lab4/scale.png");
+    tool_textures[TRANSFORM_SCALE_AROUND_POINT] = LoadTexture("images/lab4/scale-around.png");
+
+    init_matrix_transforms();
 
     vector(Polygon) polygons;
     vector_init(polygons);
@@ -69,6 +75,8 @@ int main(int argc, char **argv) {
                 vector_append(polygons, polygon_create());
             }
         }
+
+        draw_and_read_edits(vector_get(polygons, 0));
 
         for (size_t i = 0; i < polygons.len; i++) {
             polygon_draw(vector_get(polygons, i));

@@ -75,6 +75,7 @@ void        draw_text_centered(Font font, const char *text, float x, float y, Co
 void        draw_texture_centered(Texture2D texture, float x, float y);
 void        draw_histogram(Histogram histogram);
 Histogram   make_smaller_histogram(Histogram histogram, int ratio);
+Rectangle   shrink_rect(Rectangle rect, float amount);
 
 void task1(int argc, char **argv);
 void task2(int argc, char **argv);

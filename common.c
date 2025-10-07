@@ -1,4 +1,4 @@
-#include "lab2.h"
+#include "common.h"
 
 Window_Info get_window_info(void) {
     Window_Info result = {0};
@@ -90,4 +90,13 @@ void draw_histogram(Histogram histogram) {
 
         x += bounds.width / histogram.bar_count;
     }
+}
+
+Rectangle shrink_rect(Rectangle rect, float amount) {
+    float half_amount = amount / 2.0f;
+    rect.x += half_amount;
+    rect.y += half_amount;
+    rect.width -= amount;
+    rect.height -= amount;
+    return rect;
 }
