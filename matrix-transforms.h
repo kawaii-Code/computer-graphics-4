@@ -26,7 +26,7 @@ typedef struct {
 } Number_Input_Field_Description;
 
 typedef struct {
-    char buf[10];
+    char buf[16];
     int  len;
 } Number_Input_Field_State;
 

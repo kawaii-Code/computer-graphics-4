@@ -14,7 +14,7 @@ typedef struct Polygon {
 Polygon polygon_create();
 void polygon_free(Polygon p);
 
-void polygon_draw(Polygon p);
+void polygon_draw(Polygon p, bool highlighted);
 void polygon_add_vertice();
 
 bool polygon_do_edges_intersect(Polygon p);

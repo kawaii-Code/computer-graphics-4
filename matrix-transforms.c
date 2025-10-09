@@ -20,6 +20,24 @@ Matrix3x3 matrix_identity() {
     return result;
 }
 
+float square(float x) {
+    return x * x;
+}
+
+Matrix3x3 inverse_matrix(Matrix3x3 a) {
+    Matrix3x3 m = {0};
+    m.m[0] = -(a.m02/a.m00 - a.m01*(a.m02*a.m10/a.m00 - a.m12)/(a.m00*(a.m01*a.m10/a.m00 - a.m11)))*(a.m10*(a.m01*a.m20/a.m00 - a.m21)/(a.m00*(a.m01*a.m10/a.m00 - a.m11)) - a.m20/a.m00)/((a.m02*a.m10/a.m00 - a.m12)*(a.m01*a.m20/a.m00 - a.m21)/(a.m01*a.m10/a.m00 - a.m11) - a.m02*a.m20/a.m00 + a.m22) + 1/a.m00 - a.m01*a.m10/(square(a.m00)*(a.m01*a.m10/a.m00 - a.m11));
+    m.m[1] = (a.m01*a.m20/a.m00 - a.m21)*(a.m02/a.m00 - a.m01*(a.m02*a.m10/a.m00 - a.m12)/(a.m00*(a.m01*a.m10/a.m00 - a.m11)))/((a.m01*a.m10/a.m00 - a.m11)*((a.m02*a.m10/a.m00 - a.m12)*(a.m01*a.m20/a.m00 - a.m21)/(a.m01*a.m10/a.m00 - a.m11) - a.m02*a.m20/a.m00 + a.m22)) + a.m01/(a.m00*(a.m01*a.m10/a.m00 - a.m11));
+    m.m[2] = -(a.m02/a.m00 - a.m01*(a.m02*a.m10/a.m00 - a.m12)/(a.m00*(a.m01*a.m10/a.m00 - a.m11)))/((a.m02*a.m10/a.m00 - a.m12)*(a.m01*a.m20/a.m00 - a.m21)/(a.m01*a.m10/a.m00 - a.m11) - a.m02*a.m20/a.m00 + a.m22);
+    m.m[3] = -(a.m02*a.m10/a.m00 - a.m12)*(a.m10*(a.m01*a.m20/a.m00 - a.m21)/(a.m00*(a.m01*a.m10/a.m00 - a.m11)) - a.m20/a.m00)/((a.m01*a.m10/a.m00 - a.m11)*((a.m02*a.m10/a.m00 - a.m12)*(a.m01*a.m20/a.m00 - a.m21)/(a.m01*a.m10/a.m00 - a.m11) - a.m02*a.m20/a.m00 + a.m22)) + a.m10/(a.m00*(a.m01*a.m10/a.m00 - a.m11));
+    m.m[4] = -1/(a.m01*a.m10/a.m00 - a.m11) + (a.m02*a.m10/a.m00 - a.m12)*(a.m01*a.m20/a.m00 - a.m21)/(square(a.m01*a.m10/a.m00 - a.m11)*((a.m02*a.m10/a.m00 - a.m12)*(a.m01*a.m20/a.m00 - a.m21)/(a.m01*a.m10/a.m00 - a.m11) - a.m02*a.m20/a.m00 + a.m22));
+    m.m[5] = -(a.m02*a.m10/a.m00 - a.m12)/((a.m01*a.m10/a.m00 - a.m11)*((a.m02*a.m10/a.m00 - a.m12)*(a.m01*a.m20/a.m00 - a.m21)/(a.m01*a.m10/a.m00 - a.m11) - a.m02*a.m20/a.m00 + a.m22));
+    m.m[6] = (a.m10*(a.m01*a.m20/a.m00 - a.m21)/(a.m00*(a.m01*a.m10/a.m00 - a.m11)) - a.m20/a.m00)/((a.m02*a.m10/a.m00 - a.m12)*(a.m01*a.m20/a.m00 - a.m21)/(a.m01*a.m10/a.m00 - a.m11) - a.m02*a.m20/a.m00 + a.m22);
+    m.m[7] = -(a.m01*a.m20/a.m00 - a.m21)/((a.m01*a.m10/a.m00 - a.m11)*((a.m02*a.m10/a.m00 - a.m12)*(a.m01*a.m20/a.m00 - a.m21)/(a.m01*a.m10/a.m00 - a.m11) - a.m02*a.m20/a.m00 + a.m22));
+    m.m[8] = 1/((a.m02*a.m10/a.m00 - a.m12)*(a.m01*a.m20/a.m00 - a.m21)/(a.m01*a.m10/a.m00 - a.m11) - a.m02*a.m20/a.m00 + a.m22);
+    return m;
+}
+
 Matrix3x3 move_transform(float dx, float dy) {
     Matrix3x3 result = matrix_identity();
     result.m20 = dx;
@@ -83,7 +101,6 @@ Matrix3x3 rotate_around_transform(float x, float y, float phi) {
 
     return result;
 }
-
 
 void matrix_multiply(Matrix3x3 m, float *a, float *b) {
     b[0] = a[0] * m.m[0] + a[1] * m.m[3] + a[2] * m.m[6];
@@ -170,14 +187,14 @@ void draw_and_read_edits(Polygon polygon) {
 
     int key = 0;
     while ((key = GetCharPressed()) != 0) {
-        if (('0' <= key && key <= '9') || key == '-' || key == '+') {
+        if (('0' <= key && key <= '9') || key == '-' || key == '+' || key == '.') {
             Number_Input_Field_State *input_field = &input_field_states[current_tool][focused_input_field];
             Number_Input_Field_Description *description = &input_field_descriptions[current_tool][focused_input_field];
             if (input_field->len < ARRAY_LEN(input_field->buf)) {
                 input_field->buf[input_field->len] = key;
                 input_field->len += 1;
 
-                int result = atoi(input_field->buf);
+                int result = atof(input_field->buf);
                 if (result < description->min || result > description->max) {
                     input_field->buf[input_field->len - 1] = '\0';
                     input_field->len -= 1;
@@ -202,20 +219,23 @@ void draw_and_read_edits(Polygon polygon) {
         switch (current_tool) {
 
         case TRANSFORM_MOVE: {
-            int dx = atoi(input_field_states[TRANSFORM_MOVE][0].buf);
-            int dy = atoi(input_field_states[TRANSFORM_MOVE][1].buf);
+            float dx = atof(input_field_states[TRANSFORM_MOVE][0].buf);
+            float dy = atof(input_field_states[TRANSFORM_MOVE][1].buf);
             transform = move_transform(dx, dy);
+            //Matrix3x3 result = matrix_multiply_by_matrix(transform, inv);
+            //print_mat(result);
+            //printf("\n");
         } break;
 
         case TRANSFORM_ROTATE_AROUND_POINT: {
-            int x = atoi(input_field_states[TRANSFORM_ROTATE_AROUND_POINT][0].buf);
-            int y = atoi(input_field_states[TRANSFORM_ROTATE_AROUND_POINT][1].buf);
-            int phi = atoi(input_field_states[TRANSFORM_ROTATE_AROUND_POINT][2].buf);
+            float x = atof(input_field_states[TRANSFORM_ROTATE_AROUND_POINT][0].buf);
+            float y = atof(input_field_states[TRANSFORM_ROTATE_AROUND_POINT][1].buf);
+            float phi = atof(input_field_states[TRANSFORM_ROTATE_AROUND_POINT][2].buf);
             transform = rotate_around_transform(x, y, phi);
         } break;
 
         case TRANSFORM_ROTATE: {
-            int phi = atoi(input_field_states[TRANSFORM_ROTATE][0].buf);
+            float phi = atof(input_field_states[TRANSFORM_ROTATE][0].buf);
 
             float midpoint_x = 0.0f;
             float midpoint_y = 0.0f;
@@ -231,16 +251,16 @@ void draw_and_read_edits(Polygon polygon) {
         } break;
 
         case TRANSFORM_SCALE_AROUND_POINT: {
-            int x = atoi(input_field_states[TRANSFORM_SCALE_AROUND_POINT][0].buf);
-            int y = atoi(input_field_states[TRANSFORM_SCALE_AROUND_POINT][1].buf);
-            int amount = atoi(input_field_states[TRANSFORM_SCALE_AROUND_POINT][2].buf);
+            float x = atof(input_field_states[TRANSFORM_SCALE_AROUND_POINT][0].buf);
+            float y = atof(input_field_states[TRANSFORM_SCALE_AROUND_POINT][1].buf);
+            float amount = 1.0f / atof(input_field_states[TRANSFORM_SCALE_AROUND_POINT][2].buf);
             if (amount != 0) {
                 transform = scale_around_transform(x, y, amount);
             }
         } break;
 
         case TRANSFORM_SCALE: {
-            int amount = atoi(input_field_states[TRANSFORM_SCALE][0].buf);
+            float amount = 1.0f / atof(input_field_states[TRANSFORM_SCALE][0].buf);
 
             float midpoint_x = 0.0f;
             float midpoint_y = 0.0f;
@@ -257,6 +277,10 @@ void draw_and_read_edits(Polygon polygon) {
             }
         } break;
 
+        }
+
+        if (IsKeyDown(KEY_LEFT_SHIFT)) {
+            transform = inverse_matrix(transform);
         }
 
         for (int i = 0; i < polygon.vertices.len; i++) {

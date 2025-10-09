@@ -1,6 +1,9 @@
 #include "polygon.h"
 #include "utils.h"
 
+float line_thickness = 3.0f;
+float vertex_radius  = 7.0f;
+
 Polygon polygon_create() {
     Polygon p;
     vector_init(p.vertices);
@@ -14,32 +17,36 @@ void polygon_free(Polygon p) {
     vector_free(p.vertices);
 }
 
-void polygon_draw(Polygon p) {
+void polygon_draw(Polygon p, bool highlighted) {
     const VECTOR_TYPE(Point) vert = p.vertices;
 
     if (!vert.len) return;
 
+    Color line_color = (p.convex ? PINK : (highlighted ? GRAY : DARKGRAY));
+
     Point prev = vector_get(vert, 0);
     for (size_t i = 1; i < vert.len; i++) {
         Point cur = vector_get(vert, i);
-        DrawLine(prev.x, prev.y, cur.x, cur.y, GRAY);
-        DrawCircle(prev.x, prev.y, 4, BLACK);
-        DrawCircle(cur.x, cur.y, 4, BLACK);
+        Vector2 start = {prev.x, prev.y};
+        Vector2 end = {cur.x, cur.y};
+        DrawLineEx(start, end, line_thickness, line_color);
+        DrawCircle(prev.x, prev.y, vertex_radius, BLACK);
+        DrawCircle(cur.x, cur.y, vertex_radius, BLACK);
         prev = cur;
     }
 
     Point beg = vector_get(vert, 0);
     Point end = vector_get(vert, vert.len - 1);
 
-    DrawLine(beg.x, beg.y, end.x, end.y, GRAY);
-    DrawCircle(beg.x, beg.y, 4, BLACK);
-    DrawCircle(end.x, end.y, 4, BLACK);
+    DrawLineEx((Vector2){beg.x, beg.y}, (Vector2){end.x, end.y}, line_thickness, line_color);
+    DrawCircle(beg.x, beg.y, vertex_radius, highlighted ? RED : MAROON);
+    DrawCircle(end.x, end.y, vertex_radius, highlighted ? LIME : DARKGREEN);
 }
 
 bool _polygon_is_convex(Polygon p) {
     const VECTOR_TYPE(Point) vert = p.vertices;
     int n = vert.len;
-    if (n < 3) return false;
+    if (n < 3) return true;
 
     int sign = 0;
     for (int i = 0; i < n; i++) {

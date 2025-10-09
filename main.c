@@ -8,6 +8,8 @@
 
 Font fonts[FONT_COUNT];
 
+int selected_polygon = 0;
+
 int main(int argc, char **argv) {
     init();
     SetWindowSize(task_window_width, task_window_height);
@@ -42,9 +44,20 @@ int main(int argc, char **argv) {
             }
             polygons.len = 0;
             vector_append(polygons, polygon_create());
+            selected_polygon = 0;
         }
 
         DrawLine(0, unclickableArea.height, unclickableArea.width, unclickableArea.height, BLACK);
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && IsKeyDown(KEY_LEFT_SHIFT)) {
+            Vector2 mouse_position = GetMousePosition();
+            for (size_t i = 0; i < polygons.len; i++) {
+                if (polygon_contains(vector_get(polygons, i), mouse_position)) {
+                    selected_polygon = i;
+                    break;
+                }
+            }
+        }
 
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
             Vector2 mouse_position = GetMousePosition();
@@ -52,7 +65,7 @@ int main(int argc, char **argv) {
             if (CheckCollisionPointRec(mouse_position, unclickableArea)) {
                 skip = true;
             }
-            if (polygon_do_edges_intersect_new(vector_get(polygons, polygons.len - 1), mouse_position)) {
+            if (polygon_do_edges_intersect_new(vector_get(polygons, selected_polygon), mouse_position)) {
                 skip = true;
             }
             for (size_t i = 0; i < polygons.len; i++) {
@@ -64,9 +77,8 @@ int main(int argc, char **argv) {
 
             if (skip) {
                 DrawCircle(mouse_position.x, mouse_position.y, 7, RED);  
-            }
-            else {
-                polygon_add_vertice(vector_get_ptr(polygons, polygons.len - 1), mouse_position);
+            } else {
+                polygon_add_vertice(vector_get_ptr(polygons, selected_polygon), mouse_position);
             }
         }
         if (IsMouseButtonReleased(MOUSE_BUTTON_RIGHT)) {
@@ -74,13 +86,16 @@ int main(int argc, char **argv) {
             if (!CheckCollisionPointRec(mouse_position, unclickableArea)) {
                 vector_append(polygons, polygon_create());
             }
+            selected_polygon = polygons.len - 1;
         }
 
-        draw_and_read_edits(vector_get(polygons, 0));
+        draw_and_read_edits(vector_get(polygons, selected_polygon));
 
+        BeginScissorMode(0, unclickableAreaHeight, window.width, window.height);
         for (size_t i = 0; i < polygons.len; i++) {
-            polygon_draw(vector_get(polygons, i));
+            polygon_draw(vector_get(polygons, i), i == selected_polygon);
         }
+        EndScissorMode();
 
         EndDrawing();
     }
