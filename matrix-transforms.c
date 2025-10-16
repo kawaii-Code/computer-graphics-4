@@ -163,8 +163,9 @@ void init_matrix_transforms() {
     input_field_count[TRANSFORM_SCALE] = ARRAY_LEN(scale);
 }
 
-void draw_and_read_edits(Polygon polygon) {
+void draw_and_read_edits(VECTOR_TYPE(Polygon)* polygons, int i, VECTOR_TYPE(Diagonal)* diagonals) {
     Window_Info window = get_window_info();
+    Polygon polygon = vector_get(*polygons, i);
 
     Row_Layout layout = {
         .bounding_box = {
@@ -277,6 +278,14 @@ void draw_and_read_edits(Polygon polygon) {
             }
         } break;
 
+
+        case TRANSFORM_TRIANGULATE: {
+            if (polygon.vertices.len < 4) {
+                break;
+            }
+
+            polygon_triangulate(vector_get_ptr(*polygons, i), diagonals);
+        } break;
         }
 
         if (IsKeyDown(KEY_LEFT_SHIFT)) {
@@ -298,6 +307,11 @@ void draw_and_read_edits(Polygon polygon) {
         Number_Input_Field_State *state = &input_field_states[current_tool][i];
         row_skip(&layout, 0.7f * row_height(&layout));
         number_input_field(i, state, description, &layout);
+    }
+
+    for (size_t i = 0; i < diagonals->len; i++) {
+        Diagonal diag = vector_get(*diagonals, i);
+        DrawLine(diag.p1.x, diag.p1.y, diag.p2.x, diag.p2.y, BLACK);
     }
 }
 

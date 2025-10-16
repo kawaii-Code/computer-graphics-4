@@ -1,6 +1,7 @@
 #include "common.h"
 #include "vector.h"
 #include "polygon.h"
+#include "stack.h"
 #include "matrix-transforms.h"
 
 #define RAYGUI_IMPLEMENTATION
@@ -9,6 +10,8 @@
 Font fonts[FONT_COUNT];
 
 int selected_polygon = 0;
+
+VECTOR_TYPE(Diagonal)* diagonals;
 
 int main(int argc, char **argv) {
     init();
@@ -26,6 +29,11 @@ int main(int argc, char **argv) {
     vector(Polygon) polygons;
     vector_init(polygons);
     vector_append(polygons, polygon_create());
+
+    vector(Diagonal) tmp;
+    vector_init(tmp);
+
+    diagonals = &tmp;
 
     while (!WindowShouldClose()) {
         Window_Info window = get_window_info();
@@ -65,18 +73,9 @@ int main(int argc, char **argv) {
             if (CheckCollisionPointRec(mouse_position, unclickableArea)) {
                 skip = true;
             }
-            if (polygon_do_edges_intersect_new(vector_get(polygons, selected_polygon), mouse_position)) {
-                skip = true;
-            }
-            for (size_t i = 0; i < polygons.len; i++) {
-                if (polygon_contains(vector_get(polygons, i), mouse_position)) {
-                    skip = true;
-                    break;
-                }
-            }
 
             if (skip) {
-                DrawCircle(mouse_position.x, mouse_position.y, 7, RED);  
+                DrawCircle(mouse_position.x, mouse_position.y, 7, RED);
             } else {
                 polygon_add_vertice(vector_get_ptr(polygons, selected_polygon), mouse_position);
             }
@@ -89,7 +88,7 @@ int main(int argc, char **argv) {
             selected_polygon = polygons.len - 1;
         }
 
-        draw_and_read_edits(vector_get(polygons, selected_polygon));
+        draw_and_read_edits(&polygons, selected_polygon, diagonals);
 
         BeginScissorMode(0, unclickableAreaHeight, window.width, window.height);
         for (size_t i = 0; i < polygons.len; i++) {

@@ -1,4 +1,5 @@
 #include "polygon.h"
+#include "stack.h"
 #include "utils.h"
 
 float line_thickness = 3.0f;
@@ -176,3 +177,167 @@ bool polygon_contains(Polygon p, Point pt) {
 
     return _polygon_contains_not_convex(p, pt);
 }
+
+typedef struct {
+    Point p;
+    int orig_idx;
+    int chain;
+} SPoint;
+
+int _left_turn(Point a, Point b, Point c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+static int _cmp_sp_desc_y(const void *a, const void *b) {
+    const SPoint *A = a;
+    const SPoint *B = b;
+    if (A->p.y != B->p.y) return (A->p.y > B->p.y) ? -1 : 1;
+    if (A->chain != B->chain) return A->chain - B->chain;
+    return (A->p.x < B->p.x) ? -1 : 1;
+}
+
+bool _is_valid_diagonal_new(Point a, Point b, Point c, int chain) {
+    int turn = _left_turn(a, b, c);
+
+    bool valid_turn = (chain == 0) ? (turn < 0) : (turn > 0);
+
+    Polygon tmp;
+    vector_init(tmp.vertices);
+    vector_append(tmp.vertices, a);
+    vector_append(tmp.vertices, b);
+    vector_append(tmp.vertices, c);
+    bool convex_local = _polygon_is_convex(tmp);
+    vector_free(tmp.vertices);
+
+    return valid_turn && convex_local;
+}
+
+void ensure_counter_clockwise(Polygon* p) {
+    size_t n = p->vertices.len;
+    if (n < 3) return;
+
+    double area = 0;
+    for (size_t i = 0; i < n; i++) {
+        Point p1 = vector_get(p->vertices, i);
+        Point p2 = vector_get(p->vertices, (i + 1) % n);
+        area += (p1.x * p2.y - p2.x * p1.y);
+    }
+
+    // If clockwise (negative area), reverse the vertices
+    if (area < 0) {
+        for (size_t i = 0; i < n / 2; i++) {
+            Point temp = vector_get(p->vertices, i);
+            p->vertices.head[i] = p->vertices.head[n - i - 1];
+            p->vertices.head[n - i - 1] = temp;
+        }
+    }
+}
+
+void polygon_triangulate(Polygon* p, VECTOR_TYPE(Diagonal)* diagonals) {
+    size_t n = p->vertices.len;
+    if (n < 3) return;
+
+    double area = 0;
+    for (size_t i = 0; i < n; i++) {
+        Point p1 = vector_get(p->vertices, i);
+        Point p2 = vector_get(p->vertices, (i + 1) % n);
+        area += (p1.x * p2.y - p2.x * p1.y);
+    }
+
+    SPoint *arr = malloc(sizeof(SPoint) * n);
+    if (area < 0) {
+        // Clockwise - reverse order
+        for (size_t i = 0; i < n; ++i) {
+            arr[i].p = vector_get(p->vertices, n - 1 - i);
+            arr[i].orig_idx = n - 1 - i;
+            arr[i].chain = -1;
+        }
+    } else {
+        // Counter-clockwise - keep original order
+        for (size_t i = 0; i < n; ++i) {
+            arr[i].p = vector_get(p->vertices, i);
+            arr[i].orig_idx = i;
+            arr[i].chain = -1;
+        }
+    }
+
+    int top = 0, bottom = 0;
+    for (int i = 1; i < (int)n; ++i) {
+        Point pi = arr[i].p;
+        Point ptop = arr[top].p;
+        if (pi.y > ptop.y || (pi.y == ptop.y && pi.x < ptop.x)) top = i;
+    }
+    for (int i = 1; i < (int)n; ++i) {
+        Point pi = arr[i].p;
+        Point pbot = arr[bottom].p;
+        if (pi.y < pbot.y || (pi.y == pbot.y && pi.x > pbot.x)) bottom = i;
+    }
+
+    arr[top].chain = 0;
+    int current = (top + 1) % (int)n;
+    while (current != bottom) {
+        arr[current].chain = 0;
+        current = (current + 1) % (int)n;
+    }
+
+    current = (top - 1 + (int)n) % (int)n;
+    while (current != bottom) {
+        arr[current].chain = 1;
+        current = (current - 1 + (int)n) % (int)n;
+    }
+    arr[bottom].chain = 1;
+
+    SPoint *sorted = malloc(sizeof(SPoint) * n);
+    memcpy(sorted, arr, sizeof(SPoint) * n);
+    qsort(sorted, n, sizeof(SPoint), _cmp_sp_desc_y);
+
+    stack(SPoint) st;
+    stack_init(st);
+    stack_push(st, &sorted[0]);
+    stack_push(st, &sorted[1]);
+
+    for (size_t j = 2; j < n; ++j) {
+        SPoint *vj = &sorted[j];
+
+        SPoint *last = stack_top(st);
+        if (vj->chain != last->chain) {
+            while (st.top > 0) {
+                SPoint *u = stack_pop(st);
+                Diagonal diag = { vj->p, u->p };
+                vector_append(*diagonals, diag);
+            }
+            stack_pop(st);
+            stack_push(st, &sorted[j - 1]);
+            stack_push(st, vj);
+        } else {
+            /* same chain */
+            SPoint *tmp = stack_pop(st);
+            bool did_connect;
+            do {
+                did_connect = false;
+                if (st.top >= 0) {
+                    SPoint *top_sp = stack_top(st);
+                    if (_is_valid_diagonal_new(tmp->p, top_sp->p, vj->p, vj->chain)) {
+                        Diagonal diag = { vj->p, top_sp->p };
+                        vector_append(*diagonals, diag);
+                        tmp = stack_pop(st);
+                        did_connect = true;
+                    }
+                }
+            } while (did_connect && st.top >= 0);
+
+            stack_push(st, tmp);
+            stack_push(st, vj);
+        }
+    }
+
+    while (st.top > 0) {
+        SPoint *u = stack_pop(st);
+        Diagonal diag = { sorted[n - 1].p, u->p };
+        vector_append(*diagonals, diag);
+    }
+
+    free(arr);
+    free(sorted);
+}
+
