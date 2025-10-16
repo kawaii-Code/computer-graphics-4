@@ -36,6 +36,7 @@ typedef enum {
     TRANSFORM_ROTATE,
     TRANSFORM_SCALE_AROUND_POINT,
     TRANSFORM_SCALE,
+    TRANSFORM_TRIANGULATE,
     TRANSFORM_COUNT,
 } Transform_Type;
 
@@ -52,4 +53,4 @@ int       row_height(Row_Layout *layout);
 Rectangle row_make_square(Row_Layout *layout);
 Rectangle row_make_rect(Row_Layout *layout, int width);
 bool tool_button(Transform_Type tool, Row_Layout *layout);
-void draw_and_read_edits(Polygon polygon);
+void draw_and_read_edits(VECTOR_TYPE(Polygon)* polygons, int i, VECTOR_TYPE(Diagonal)* diagonals);

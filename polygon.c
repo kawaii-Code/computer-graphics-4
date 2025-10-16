@@ -1,4 +1,5 @@
 #include "polygon.h"
+#include "stack.h"
 #include "utils.h"
 
 float line_thickness = 3.0f;
@@ -175,4 +176,147 @@ bool polygon_contains(Polygon p, Point pt) {
     }
 
     return _polygon_contains_not_convex(p, pt);
+}
+
+int _left_turn(Point a, Point b, Point c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+bool _is_valid_diagonal(Point current, Point top, Point last) {
+    return _left_turn(current, top, last) > 0;  // Левый поворот = валидно
+}
+
+int _cmp_point_y(const void* a, const void* b) {
+    Point arg1 = *(const Point*)a;
+    Point arg2 = *(const Point*)b;
+
+    if (arg1.y < arg2.y) return 1;
+    if (arg1.y > arg2.y) return -1;
+    return 0;
+}
+
+int _cmp_not_point_y(const void* a, const void* b) {
+    return -_cmp_point_y(a, b);
+}
+// Minimal-fix version of your polygon_triangulate that keeps your style but fixes bugs.
+// Assumptions:
+// - Point has fields x,y
+// - p->vertices is a vector of Point in polygon order
+// - VECTOR_TYPE(Diagonal) *diagonals is an initialized vector to append to
+// - _is_valid_diagonal(Point a, Point b, Point c) exists and returns bool
+// - stack(Point*)/stack_init/stack_push/stack_pop/stack_top behave as in your code
+// - vector_* helpers behave as in your code
+
+typedef struct {
+    Point p;
+    int orig_idx; // index in original polygon vertex order
+    int chain;    // 0 = left chain, 1 = right chain (assigned below)
+} SPoint;
+
+static int _cmp_sp_desc_y(const void *a, const void *b) {
+    const SPoint *A = a;
+    const SPoint *B = b;
+    if (A->p.y < B->p.y) return 1;
+    if (A->p.y > B->p.y) return -1;
+    if (A->p.x < B->p.x) return -1;
+    if (A->p.x > B->p.x) return 1;
+    return 0;
+}
+
+void polygon_triangulate(Polygon* p, VECTOR_TYPE(Diagonal)* diagonals) {
+    size_t n = p->vertices.len;
+    if (n < 3) return;
+
+    SPoint *arr = malloc(sizeof(SPoint) * n);
+    if (!arr) return;
+    for (size_t i = 0; i < n; ++i) {
+        arr[i].p = vector_get(p->vertices, i);
+        arr[i].orig_idx = (int)i;
+        arr[i].chain = -1;
+    }
+
+    int top = 0, bottom = 0;
+    for (int i = 1; i < (int)n; ++i) {
+        Point pi = vector_get(p->vertices, i);
+        Point ptop = vector_get(p->vertices, top);
+        Point pbot = vector_get(p->vertices, bottom);
+        if (pi.y > ptop.y || (pi.y == ptop.y && pi.x < ptop.x)) top = i;
+        if (pi.y < pbot.y || (pi.y == pbot.y && pi.x > pbot.x)) bottom = i;
+    }
+
+    int idx = top;
+    while (idx != bottom) {
+        arr[idx].chain = 0;
+        idx = (idx + 1) % (int)n;
+    }
+    arr[bottom].chain = 0;
+
+    idx = top;
+    while (idx != bottom) {
+        arr[idx].chain = 1;
+        idx = (idx - 1 + (int)n) % (int)n;
+    }
+    arr[bottom].chain = 1;
+
+    SPoint *sorted = malloc(sizeof(SPoint) * n);
+    if (!sorted) { free(arr); return; }
+    for (size_t i = 0; i < n; ++i) sorted[i] = arr[i];
+    qsort(sorted, n, sizeof(SPoint), _cmp_sp_desc_y);
+
+    stack(SPoint) st;
+    stack_init(st);
+
+    stack_push(st, &sorted[0]);
+    stack_push(st, &sorted[1]);
+
+    for (size_t j = 2; j < n - 1; ++j) {
+        SPoint *vj = &sorted[j];
+        SPoint *peek = stack_top(st);
+
+        if (vj->chain != peek->chain) {
+            while (st.top != -1) {
+                if (st.top != 0) {
+                    Diagonal diag;
+                    diag.p1 = vj->p;
+                    diag.p2 = stack_top(st)->p;
+                    vector_append(*diagonals, diag);
+                }
+                stack_pop(st);
+            }
+            stack_push(st, &sorted[j - 1]);
+            stack_push(st, vj);
+        } else {
+            SPoint *last = stack_pop(st);
+            while (st.top != -1) {
+                SPoint *second = stack_top(st);
+                if (_is_valid_diagonal(vj->p, second->p, last->p)) {
+                    Diagonal diag;
+                    diag.p1 = vj->p;
+                    diag.p2 = second->p;
+                    vector_append(*diagonals, diag);
+
+                    last = stack_pop(st);
+                    if (last == NULL) break;
+                } else {
+                    break;
+                }
+            }
+            stack_push(st, last);
+            stack_push(st, vj);
+        }
+    }
+
+    stack_pop(st);
+    while (st.top != -1) {
+        if (st.top != 0) {
+            Diagonal diag;
+            diag.p1 = sorted[n - 1].p;
+            diag.p2 = stack_top(st)->p;
+            vector_append(*diagonals, diag);
+        }
+        stack_pop(st);
+    }
+
+    free(arr);
+    free(sorted);
 }

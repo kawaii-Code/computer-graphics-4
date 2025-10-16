@@ -8,6 +8,7 @@
 #define VECTOR_TYPE(type) struct vector_##type
 
 #define vector(type) struct vector_##type {type *head; size_t len; size_t cap; }
+#define vector_ptr(type) struct vector_##type_ptr {type** head; size_t len; size_t cap; }
 
 #define vector_new() {0,0,0}
 #define vector_init(vec) do {(vec).head=0; (vec).len=0; (vec).cap=0;} while(0)
@@ -21,10 +22,10 @@
     (vec).head[0]) )
 
 #define vector_get_ptr(vec, i) \
-    ( (((i) < (vec).len) && ((i) >= 0)) ? &(vec).head[(i)] : \
+    ( (((i) < (vec).len) && ((i) >= 0)) ? (vec).head + (i) : \
     (fprintf(stderr, "Vector index %zu out of bounds (len=%zu)\n", (size_t)(i), (vec).len), \
     exit(EXIT_FAILURE), \
-    &(vec).head[0]) )
+    (vec).head) )
 
 #define vector_reserve(vec, room) do { \
         size_t newCap = (vec).cap+(room); \
@@ -54,7 +55,7 @@
 
 #define _vector_grow(vec, need) do { \
         size_t need_ = (need); \
-        if (need_ > (vec).cap) \
+        if (need_ > ((vec).cap - (vec).len)) \
             _vector_realloc(vec, _vector_next_alloc((vec).cap, need_)); \
     } while(0)
 

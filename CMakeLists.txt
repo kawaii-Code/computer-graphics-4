@@ -13,6 +13,7 @@ add_executable(${PROJECT_NAME}
         utils.c
         utils.h
         matrix-transforms.c
+        stack.h
 )
 
 file(GLOB RAYLIB_FILES "third_party/lib/*raylib.*")
