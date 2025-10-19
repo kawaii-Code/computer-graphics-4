@@ -8,11 +8,11 @@ add_executable(${PROJECT_NAME}
         common.c
         clay_renderer_raylib.c
         vector.h
-        polygon.c
-        polygon.h
-        utils.c
-        utils.h
-        matrix-transforms.c
+        task1.c
+        task2.c
+        task3.c
+        llist.h
+        stack.h
 )
 
 file(GLOB RAYLIB_FILES "third_party/lib/*raylib.*")

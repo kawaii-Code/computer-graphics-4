@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "../utils.h"
 #include <math.h>
 
 Intersection edge_intersection(Edge e1, Edge e2) {

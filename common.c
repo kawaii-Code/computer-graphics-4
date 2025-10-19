@@ -100,3 +100,7 @@ Rectangle shrink_rect(Rectangle rect, float amount) {
     rect.height -= amount;
     return rect;
 }
+
+float random_range(float min, float max) {
+    return min + (float)rand() / RAND_MAX * (max - min);
+}

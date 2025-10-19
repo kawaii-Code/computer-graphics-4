@@ -30,6 +30,8 @@
 #include "third_party/include/raygui.h"
 #include "third_party/include/raymath.h"
 
+#include "vector.h"
+#include "llist.h"
 
 #define TO_CLAY_COLOR(color) ((Clay_Color){ .r = color.r, .b = color.b, .g = color.g, .a = color.a })
 #define ARRAY_LEN(array) (sizeof(array) / sizeof(*array))
@@ -89,9 +91,11 @@ Clay_Dimensions Raylib_MeasureText(Clay_StringSlice text, Clay_TextElementConfig
 const static int menu_window_width = 400;
 const static int menu_window_height = 300;
 
-const static int task_window_width = 800;
-const static int task_window_height = 600;
+const static int task_window_width = 800 * 2;
+const static int task_window_height = 600 * 2;
 
 const static Color ui_background_color = {224, 215, 210, 255};
 const static Color ui_text_color       = {168, 66, 28, 255};
 const static Color ui_border_color     = {225, 138, 50, 255};
+
+float random_range(float min, float max);
