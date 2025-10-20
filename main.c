@@ -36,12 +36,13 @@ int main(int argc, char **argv) {
             task1(argc, argv);
         }
 
-        if (Button(btn2, "Task 2")) {
+
+        if (Button(btn2, "Задание 2")) {
             task2(argc, argv);
         }
 
-        if (Button(btn3, "Task 3")) {
-            // task3(argc, argv);
+        if (Button(btn3, "Задание 3")) {
+            task3(argc, argv);
         }
 
         EndDrawing();
