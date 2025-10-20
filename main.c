@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
         ClearBackground(ui_background_color);
 
         if (Button(btn1, "Task 1")) {
-            // task1(argc, argv);
+            task1(argc, argv);
         }
 
         if (Button(btn2, "Task 2")) {
