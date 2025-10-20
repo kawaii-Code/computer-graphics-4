@@ -32,16 +32,16 @@ int main(int argc, char **argv) {
         BeginDrawing();
         ClearBackground(ui_background_color);
 
-        if (Button(btn1, "Task 1")) {
+        if (Button(btn1, "Задание 1")) {
             // task1(argc, argv);
         }
 
-        if (Button(btn2, "Task 2")) {
+        if (Button(btn2, "Задание 2")) {
             task2(argc, argv);
         }
 
-        if (Button(btn3, "Task 3")) {
-            // task3(argc, argv);
+        if (Button(btn3, "Задание 3")) {
+            task3(argc, argv);
         }
 
         EndDrawing();
