@@ -99,7 +99,7 @@ void task1(int argc, char** argv) {
         }
 
         BeginDrawing();
-        ClearBackground(WHITE);
+        ClearBackground(ui_background_color);
 
         if (strlen(lstring) > 0) {
             lsystem_draw(&ls, lstring, task_window_width, task_window_height);

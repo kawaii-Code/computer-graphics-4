@@ -2,8 +2,6 @@
 
 float bezier_point_radius = 25.0f;
 float bezier_point_border_radius = 3.0f;
-Color bezier_point_hovered_color = RED;
-Color bezier_point_default_color = YELLOW;
 
 int bezier_approximation_points = 100;
 
@@ -40,6 +38,9 @@ void task3(int argc, char** argv) {
     SetWindowSize(task_window_width, task_window_height);
 
     Font font = fonts[FONT_MAIN];
+
+    Color bezier_point_hovered_color = RED;
+    Color bezier_point_default_color = YELLOW;
 
     int dragged_point_index = -1;
     while (!WindowShouldClose()) {
