@@ -45,13 +45,19 @@ typedef struct {
     float* angle_variations;
     int variations_count;
     bool use_random;
+
+    float initial_thickness;
+    float thickness_decay;
+    Color trunk_color;
+    Color leaf_color;
 } LSystem;
 
 void lsystem_init(LSystem* ls);
 bool lsystem_load_from_file(LSystem* ls, const char* filename);
 void lsystem_generate_string(LSystem* ls, char* result, int iterations);
 void lsystem_regenerate_variations(LSystem* ls, const char* lstring);
-void lsystem_draw(LSystem* ls, const char* lstring, int width, int height);
+void lsystem_draw(LSystem* ls, const char* lstring);
+void lsystem_draw_tree(LSystem* ls, const char* lstring);
 void lsystem_free(LSystem* ls);
 
 void turtle_stack_init(TurtleStack* stack);

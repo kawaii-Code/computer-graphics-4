@@ -113,7 +113,12 @@ void task1(int argc, char** argv) {
         ClearBackground(ui_background_color);
 
         if (strlen(lstring) > 0) {
-            lsystem_draw(&ls, lstring, task_window_width, task_window_height);
+            if (currentFractal > 4 && currentFractal < 8) {
+                lsystem_draw_tree(&ls, lstring);
+            }
+            else {
+                lsystem_draw(&ls, lstring);
+            }
         }
 
         EndDrawing();
