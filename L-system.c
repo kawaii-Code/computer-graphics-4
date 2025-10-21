@@ -30,6 +30,12 @@ void lsystem_init(LSystem* ls) {
     ls->initial_angle = -90.0f;
     ls->step = 10.0f;
     ls->rule_count = 0;
+    ls->pos = (Vector2){ 0.0f, 0.0f };
+    ls->max_iter = 4;
+    ls->angle_variation = 9.0f;    
+    ls->angle_variations = NULL; 
+    ls->variations_count = 0;
+    ls->use_random = false;
     turtle_stack_init(&ls->stack);
 }
 
@@ -46,11 +52,16 @@ bool lsystem_load_from_file(LSystem* ls, const char* filename) {
     if (fgets(line, sizeof(line), file)) {
         char axiom[10];
         float angle, initial_angle;
+        float pos_x, pos_y, step;
+        int iter;
 
-        if (sscanf(line, "%s %f %f", axiom, &angle, &initial_angle) == 3) {
+        if (sscanf(line, "%s %f %f %f %f %f %d", axiom, &angle, &initial_angle, &step, &pos_x, &pos_y,&iter) == 7) {
             strcpy(ls->axiom, axiom);
             ls->angle = angle;
             ls->initial_angle = initial_angle;
+            ls->step = step;
+            ls->pos = (Vector2){ pos_x,pos_y };
+            ls->max_iter = iter;
         }
     }
     
@@ -67,15 +78,21 @@ bool lsystem_load_from_file(LSystem* ls, const char* filename) {
             ls->rule_count++;
         }
     }
-    ls->step = 8.0f;
 
     fclose(file);
     return true;
 }
 
 void lsystem_generate_string(LSystem* ls, char* result, int iterations) {
-    char current[MAX_STRING_LENGTH];
-    char next[MAX_STRING_LENGTH];
+    char* current = (char*)malloc(MAX_STRING_LENGTH * sizeof(char));
+    char* next = (char*)malloc(MAX_STRING_LENGTH * sizeof(char));
+
+    if (!current || !next) {
+        printf("Error: Memory allocation failed!\n");
+        if (current) free(current);
+        if (next) free(next);
+        return;
+    }
 
     strcpy(current, ls->axiom);
 
@@ -105,20 +122,63 @@ void lsystem_generate_string(LSystem* ls, char* result, int iterations) {
     strcpy(result, current);
 }
 
+float my_random_range(float min, float max) {
+    return min + ((float)rand() / RAND_MAX) * (max - min);
+}
+
+void lsystem_regenerate_variations(LSystem* ls, const char* lstring) {
+    if (ls->angle_variations) {
+        free(ls->angle_variations);
+        ls->angle_variations = NULL;
+    }
+
+    if (!lstring || strlen(lstring) == 0) {
+        ls->variations_count = 0;
+        return;
+    }
+
+    int len = strlen(lstring);
+    ls->angle_variations = (float*)malloc(len * sizeof(float));
+
+    if (!ls->angle_variations) {
+        ls->variations_count = 0;
+        return;
+    }
+
+    ls->variations_count = len;
+
+    for (int i = 0; i < len; i++) {
+        ls->angle_variations[i] = my_random_range(-ls->angle_variation, ls->angle_variation);
+    }
+
+}
+
 void lsystem_draw(LSystem* ls, const char* lstring, int width, int height) {
     if (strlen(lstring) == 0) {
         return;
     }
 
-    float base_step = 50.0f; 
-
-    Vector2 current_pos = { width / 2.0f, height / 2.0f };
+    float base_step = ls->step;
+    Vector2 current_pos = ls->pos;
     float current_angle = ls->initial_angle;
 
     turtle_stack_init(&ls->stack);
+    int variation_index = 0;
 
     for (int i = 0; i < strlen(lstring); i++) {
         char symbol = lstring[i];
+
+        float angle_var = 0.0f;
+
+        if (ls->use_random &&
+            ls->angle_variations != NULL &&
+            variation_index < ls->variations_count &&
+            (symbol == '+' || symbol == '-')) {
+
+            angle_var = ls->angle_variations[variation_index];
+            variation_index++;
+        }
+
 
         switch (symbol) {
         case 'F': 
@@ -142,18 +202,13 @@ void lsystem_draw(LSystem* ls, const char* lstring, int width, int height) {
             current_pos = new_pos;
             break;
         }
-
-        case 'X':
-        {
-            break;
-        }
-
+        
         case '+': 
-            current_angle += ls->angle;
+            current_angle += ls->angle + angle_var;
             break;
 
         case '-': 
-            current_angle -= ls->angle;
+            current_angle -= ls->angle + angle_var;
             break;
 
         case '[': 
@@ -182,5 +237,9 @@ void lsystem_draw(LSystem* ls, const char* lstring, int width, int height) {
 }
 
 void lsystem_free(LSystem* ls) {
-    lsystem_init(ls);
+    if (ls->angle_variations) {
+        free(ls->angle_variations);
+        ls->angle_variations = NULL;
+    }
+    ls->variations_count = 0;
 }

@@ -1,3 +1,3 @@
-FXF--FF--FF 60 0
+FXF--FF--FF 60 0 10 300 800 6
 F->FF
 X->--FXF++FXF++FXF--

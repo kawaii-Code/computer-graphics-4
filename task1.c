@@ -1,7 +1,7 @@
 #include "common.h"
 #include "L-system.h"
 
-#define MAX_FRACTALS 10
+#define MAX_FRACTALS 13
 
 typedef struct {
     char name[50];
@@ -13,27 +13,38 @@ void task1(int argc, char** argv) {
     int task_window_width = GetMonitorWidth(0);
     int task_window_height = GetMonitorHeight(0);
     ToggleBorderlessWindowed();
-    SetWindowSize(task_window_width, task_window_height);
+    //SetWindowSize(task_window_width, task_window_height);
 
     LSystem ls;
     lsystem_init(&ls);
 
     FractalOption fractals[MAX_FRACTALS] = {
-        {"Снежинка Коха", "./fractals/koch.txt"},
+        {"Кривая Коха", "./fractals/koch.txt"},
+        {"Снежинка Коха", "./fractals/snowflake.txt"},
+        {"Квадратный остров Коха", "./fractals/island.txt"},
         {"Дракон", "./fractals/dragon.txt"},
-        {"Дерево", "./fractals/tree.txt"},
-        {"Ковер Серпинского", "./fractals/sierpinski_carpet.txt"}
+        {"Дракон Хартера-Хейтуэя", "./fractals/dragon2.txt"},
+        {"Куст 1", "./fractals/tree1.txt"},
+        {"Куст 2", "./fractals/tree2.txt"},
+        {"Куст 3", "./fractals/tree3.txt"},
+        {"Треугольник Серпинского", "./fractals/sierpinski_carpet.txt"},
+        {"Наконечник Серпинского", "./fractals/peak.txt" },
+        {"Кривая Гилберта", "./fractals/gilbert_curve.txt" },
+        {"Кривая Госпера", "./fractals/gosper_curve.txt" },
+        {"Шестиугольная мозаика", "./fractals/mosaic.txt" }
     };
-    int fractalCount = 4;
+    int fractalCount = 13;
     int currentFractal = 0;
 
     int iterations = 1;
     bool showDropdown = false;
-    bool useRandomness = false;
+    bool useRandom = false;
 
     Rectangle dropdownBounds = { 20, 20, 250, 40 };
     Rectangle iterMinusButton = { 280, 20, 40, 40 };
     Rectangle iterPlusButton = { 330, 20, 40, 40 };
+    Rectangle randomButton = { 380, 20, 200, 40 };
+    Rectangle regenerateButton = { 590, 20, 250, 40 };
 
     char lstring[MAX_STRING_LENGTH] = "";
 
@@ -42,7 +53,7 @@ void task1(int argc, char** argv) {
     }
 
     while (!WindowShouldClose()) {
-        const char* fractalNames[4];
+        const char* fractalNames[13];
         for (int i = 0; i < fractalCount; i++) {
             fractalNames[i] = fractals[i].name;
         }
@@ -50,14 +61,6 @@ void task1(int argc, char** argv) {
         if (Button((Rectangle) { dropdownBounds.x, dropdownBounds.y, dropdownBounds.width, dropdownBounds.height }, fractalNames[currentFractal]))
         {
             showDropdown = !showDropdown;
-        }
-
-        if (showDropdown && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            Vector2 mousePos = GetMousePosition();
-            if (!CheckCollisionPointRec(mousePos, dropdownBounds) &&
-                !CheckCollisionPointRec(mousePos, (Rectangle) { dropdownBounds.x, dropdownBounds.y + 50, dropdownBounds.width, dropdownBounds.height* fractalCount })) {
-                showDropdown = false;
-            }
         }
 
         if (showDropdown)
@@ -93,9 +96,17 @@ void task1(int argc, char** argv) {
             lsystem_generate_string(&ls, lstring, iterations);
         }
 
-        if (Button(iterPlusButton, "+") && iterations < 7) {
+        if (Button(iterPlusButton, "+") && iterations < ls.max_iter) {
             iterations++;
             lsystem_generate_string(&ls, lstring, iterations);
+        }
+
+        if (Button(randomButton, ls.use_random ? "Вариации: ВКЛ" : "Вариации: ВЫКЛ")) {
+            ls.use_random = !ls.use_random;
+        }
+
+        if (ls.use_random && Button(regenerateButton, "Новые вариации")) {
+            lsystem_regenerate_variations(&ls, lstring);
         }
 
         BeginDrawing();

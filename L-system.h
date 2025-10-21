@@ -10,7 +10,7 @@
 #include <time.h>
 #include <stdbool.h>
 
-#define MAX_STRING_LENGTH 50000
+#define MAX_STRING_LENGTH 500000
 #define MAX_RULES 10
 #define MAX_STACK_SIZE 1000
 
@@ -37,11 +37,20 @@ typedef struct {
     ProductionRule rules[MAX_RULES];
     int rule_count;
     TurtleStack stack;
+
+    Vector2 pos;
+    int max_iter;
+
+    float angle_variation; 
+    float* angle_variations;
+    int variations_count;
+    bool use_random;
 } LSystem;
 
 void lsystem_init(LSystem* ls);
 bool lsystem_load_from_file(LSystem* ls, const char* filename);
 void lsystem_generate_string(LSystem* ls, char* result, int iterations);
+void lsystem_regenerate_variations(LSystem* ls, const char* lstring);
 void lsystem_draw(LSystem* ls, const char* lstring, int width, int height);
 void lsystem_free(LSystem* ls);
 
