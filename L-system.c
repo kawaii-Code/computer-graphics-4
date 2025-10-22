@@ -1,4 +1,5 @@
 #include "L-system.h"
+#include "common.h"
 
 void turtle_stack_init(TurtleStack* stack) {
     stack->top = -1;
@@ -154,7 +155,7 @@ void lsystem_regenerate_variations(LSystem* ls, const char* lstring) {
     ls->variations_count = len;
 
     for (int i = 0; i < len; i++) {
-        ls->angle_variations[i] = my_random_range(-ls->angle_variation, ls->angle_variation);
+        ls->angle_variations[i] = random_range(-ls->angle_variation, ls->angle_variation);
     }
 
 }

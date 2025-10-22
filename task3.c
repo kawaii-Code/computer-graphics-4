@@ -3,10 +3,13 @@
 float bezier_point_radius = 25.0f;
 float bezier_point_border_radius = 3.0f;
 
-int bezier_approximation_points = 100;
+int bezier_approximation_points = 250;
 
 static Vector2 bezier_points[128];
 static int     bezier_points_len;
+
+static Vector2 bezier_points2[128];
+static int     bezier_points2_len;
 
 Vector2 dp[128];
 
@@ -33,8 +36,31 @@ Vector2 evaluate_bezier_curve(float t) {
     return dp[0];
 }
 
+Vector2 evaluate_bezier_curve2(float t, int i0, int i1) {
+    int n = i1 - i0 + 1;
+
+    if (n == 0) {
+        return (Vector2){-100, -100};
+    }
+    if (n == 1) {
+        return bezier_points[0];
+    }
+
+    for (int i = 0; i < n; i++) {
+        dp[i] = bezier_points2[i];
+    }
+    for (int j = 1; j < n; j++) {
+        for (int i = 0; i < n - j; i++) {
+            float x = dp[i].x * (1 - t) + dp[i + 1].x * t;
+            float y = dp[i].y * (1 - t) + dp[i + 1].y * t;
+            dp[i] = (Vector2){x, y};
+        }
+    }
+    return dp[0];
+}
+
 void task3(int argc, char** argv) {
-    SetWindowTitle("Задание 2");
+    SetWindowTitle("Задание 3");
     SetWindowSize(task_window_width, task_window_height);
 
     Font font = fonts[FONT_MAIN];
@@ -59,11 +85,12 @@ void task3(int argc, char** argv) {
 
         if (IsKeyPressed(KEY_C)) {
             bezier_points_len = 0;
+            bezier_points2_len = 0;
         }
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             if (IsKeyDown(KEY_LEFT_SHIFT) && hovered_point_index == -1) {
-                bezier_points[bezier_points_len] = (Vector2){ .x = mouse_position.x, .y = mouse_position.y };
+                bezier_points[bezier_points_len] = mouse_position;
                 bezier_points_len += 1;
             } else if (hovered_point_index != -1) {
                 dragged_point_index = hovered_point_index;
@@ -80,25 +107,43 @@ void task3(int argc, char** argv) {
         DrawTextEx(font, "C: Стереть всё", (Vector2){2, font.baseSize + 4}, font.baseSize, 0.0, ui_text_color);
 
         ClearBackground(ui_background_color);
-        for (int i = 0; i < bezier_points_len; i++) {
+
+        for (int i = 0; i < bezier_points2_len; i += 2) {
             Color color = (i == hovered_point_index) ? bezier_point_hovered_color : bezier_point_default_color;
-            if (i == dragged_point_index) {
-                color = bezier_point_hovered_color;
-                color.r *= 0.8f;
-                color.g *= 0.8f;
-                color.b *= 0.8f;
-            }
-            if (i < bezier_points_len - 1) {
-                DrawLineEx(bezier_points[i], bezier_points[i + 1], 2, GRAY);
-            }
-            DrawCircleV(bezier_points[i], bezier_point_radius, BLACK);
-            DrawCircleV(bezier_points[i], bezier_point_radius - bezier_point_border_radius, color);
+            DrawCircleV(bezier_points2[i], bezier_point_radius, BLACK);
+            DrawCircleV(bezier_points2[i], bezier_point_radius - bezier_point_border_radius, color);
+            color = (i + 1 == hovered_point_index) ? bezier_point_hovered_color : bezier_point_default_color;
+            DrawCircleV(bezier_points2[i + 1], 0.5f * bezier_point_radius, color);
+            DrawCircleV(bezier_points2[i + 1], 0.5f * (bezier_point_radius - bezier_point_border_radius), RED);
         }
-        for (int i = 0; i <= bezier_approximation_points; i++) {
-            float t = (float)i / bezier_approximation_points;
-            Vector2 point = evaluate_bezier_curve(t);
-            DrawCircleV(point, 3.0f, BLACK);
+
+        for (int i = 0; i < bezier_points2_len - 4; i += 2) {
+            for (int j = 0; j <= bezier_approximation_points; j++) {
+                float t = (float)j / bezier_approximation_points;
+                Vector2 point = evaluate_bezier_curve2(j, i, i + 4);
+                DrawCircleV(point, 3.0f, BLACK);
+            }
         }
+
+        //for (int i = 0; i < bezier_points_len; i++) {
+        //    Color color = (i == hovered_point_index) ? bezier_point_hovered_color : bezier_point_default_color;
+        //    if (i == dragged_point_index) {
+        //        color = bezier_point_hovered_color;
+        //        color.r *= 0.8f;
+        //        color.g *= 0.8f;
+        //        color.b *= 0.8f;
+        //    }
+        //    if (i < bezier_points_len - 1) {
+        //        DrawLineEx(bezier_points[i], bezier_points[i + 1], 2, GRAY);
+        //    }
+        //    DrawCircleV(bezier_points[i], bezier_point_radius, BLACK);
+        //    DrawCircleV(bezier_points[i], bezier_point_radius - bezier_point_border_radius, color);
+        //}
+        //for (int i = 0; i <= bezier_approximation_points; i++) {
+        //    float t = (float)i / bezier_approximation_points;
+        //    Vector2 point = evaluate_bezier_curve(t);
+        //    DrawCircleV(point, 3.0f, BLACK);
+        //}
         EndDrawing();
     }
 
