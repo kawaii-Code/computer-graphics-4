@@ -1,51 +1,258 @@
 #include "common.h"
 #include <time.h>
+#include "Polyhedron.h"
 
 #define RAYGUI_IMPLEMENTATION
 #include "third_party/include/raygui.h"
 
 Font fonts[FONT_COUNT];
 
+void change_polyhedron(int new_selection);
+
 int selected_polygon = 0;
+bool show_dropdown = false;
+
+Vector3 translation = { 0 };
+Vector3 rotation_axis = { 0, 1, 0 };
+
+float rotation_angle = 0;
+Vector3 scale = { 1, 1, 1 };
+
+Polyhedron current_poly;
+bool poly_initialized = false;
+
+const char* polyhedron_names[] = {
+    "Тетраэдр",
+    "Гексаэдр (Куб)",
+    "Октаэдр",
+    "Икосаэдр"
+    //"Додекаэдр"
+};
+const int polyhedron_count = 4;
 
 int main(int argc, char **argv) {
     init();
     SetWindowSize(menu_window_width, menu_window_height);
-    srand(time(NULL)); // seed once
+    srand(time(NULL)); 
+
+    Camera3D camera = { 0 };
+    camera.position = (Vector3){ 10.0f, 10.0f, 10.0f };
+    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+    camera.fovy = 45.0f;
+    camera.projection = CAMERA_PERSPECTIVE;//вот вопрос, нам нужно самим это сделать?
+
+    Polyhedron tetra, hexa, octa, ico, dodeca;
+    Polyhedron_createTetrahedron(&tetra);
+    Polyhedron_createHexahedron(&hexa);
+    Polyhedron_createOctahedron(&octa);
+    Polyhedron_createIcosahedron(&ico);
+    //Polyhedron_createDodecahedron(&dodeca);
+
+    current_poly = tetra;
+    poly_initialized = true;
+
+    Matrix transform = MatrixIdentity();
+
 
     while (!WindowShouldClose()) {
         Window_Info window = get_window_info();
+        SetWindowTitle("Лаба 5");
 
-        float button_width = 200.0f;
-        float button_height = 50.0f;
-        float button_x = window.center.x - button_width / 2.0f;
-        float button_y = 60.0f;
-        Rectangle btn1 = {button_x, button_y, button_width, button_height};
+        Vector2 current_mouse_position = GetMousePosition();
 
-        Rectangle btn2 = btn1;
-        btn2.y += 70.0f;
-        Rectangle btn3 = btn2;
-        btn3.y += 70;
+        typedef enum {
+            MODE_NONE,
+            MODE_TRANSLATE,
+            MODE_ROTATE,
+            MODE_SCALE
+        } TransformMode;
 
-        SetWindowTitle("Лаба 2");
+        static TransformMode current_mode = MODE_NONE;
+
+        static int translate_axis = 0; // 0=X, 1=Y, 2=Z
+        static int rotate_axis = 1;    // 0=X, 1=Y, 2=Z
+
+        static float temp_translation[3] = { 0 };
+        static float temp_rotation_angle = 0;
+        static float temp_scale[3] = { 1, 1, 1 };
+        static float rotation_angles[3] = { 0, 0, 0 };
+
+        temp_translation[0] = translation.x;
+        temp_translation[1] = translation.y;
+        temp_translation[2] = translation.z;
+        temp_scale[0] = scale.x;
+        temp_scale[1] = scale.y;
+        temp_scale[2] = scale.z;
+
+        //UpdateCamera(&camera, CAMERA_ORBITAL);
+        
+        if (IsKeyDown(KEY_W)) camera.position.z -= 0.1f;
+        if (IsKeyDown(KEY_S)) camera.position.z += 0.1f;
+        if (IsKeyDown(KEY_A)) camera.position.x -= 0.1f;
+        if (IsKeyDown(KEY_D)) camera.position.x += 0.1f;
+        if (IsKeyDown(KEY_Q)) camera.position.y -= 0.1f;
+        if (IsKeyDown(KEY_E)) camera.position.y += 0.1f;
+
+        Matrix user_transform = CreateTransformMatrix(translation, rotation_angles, rotation_axis, scale);
 
         BeginDrawing();
         ClearBackground(ui_background_color);
 
-        if (Button(btn1, "Задание 1")) {
-            task1(argc, argv);
+        Rectangle dropdown_rect = { 20, 20, 200, 40 };
+        DropdownMenu(dropdown_rect, &selected_polygon, &show_dropdown,
+            polyhedron_count, polyhedron_names, change_polyhedron);
+
+        int button_x = 240;
+        int button_y = 20;
+        int button_width = 200;
+        int button_height = 40;
+        int button_spacing = 10;
+
+        Rectangle translate_btn = { button_x, button_y, button_width, button_height };
+        if (Button(translate_btn, "Смещение")) {
+            current_mode = MODE_TRANSLATE;
         }
 
-        if (Button(btn2, "Задание 2")) {
-            task2(argc, argv);
+        Rectangle rotate_btn = { button_x, button_y + button_height + button_spacing, button_width, button_height };
+        if (Button(rotate_btn, "Поворот")) {
+            current_mode = MODE_ROTATE;
         }
 
-        if (Button(btn3, "Задание 3")) {
-            task3(argc, argv);
+        Rectangle scale_btn = { button_x, button_y + 2 * (button_height + button_spacing), button_width, button_height };
+        if (Button(scale_btn, "Масштаб")) {
+            current_mode = MODE_SCALE;
         }
+
+        Rectangle reset_btn = { button_x, button_y + 3 * (button_height + button_spacing), button_width, button_height };
+        if (Button(reset_btn, "Сбросить всё")) {
+            translation = (Vector3){ 0 };
+            rotation_angle = 0;
+            rotation_axis = (Vector3){ 0, 1, 0 };
+            scale = (Vector3){ 1, 1, 1 };
+            current_mode = MODE_NONE;
+            temp_translation[0] = temp_translation[1] = temp_translation[2] = 0;
+            temp_rotation_angle = 0;
+            temp_scale[0] = temp_scale[1] = temp_scale[2] = 1;
+        }
+
+        int panel_x = 240;
+        int panel_y = button_y + 4 * (button_height + button_spacing) + 10;
+        int panel_width = 300;
+        int panel_height = 200;
+
+        DrawRectangle(panel_x, panel_y, panel_width, panel_height, Fade(LIGHTGRAY, 0.8f));
+        DrawRectangleLines(panel_x, panel_y, panel_width, panel_height, DARKGRAY);
+
+        int param_y = panel_y + 10;
+
+        switch (current_mode) {
+        case MODE_TRANSLATE: {
+            DrawTextEx(fonts[FONT_MAIN], "Ось смещения:",(Vector2) {.x = panel_x + 10, .y = param_y},16, 0, BLACK);
+            param_y += 25;
+
+            Rectangle axis_x_btn = { panel_x + 20, param_y, 60, 25 };
+            Rectangle axis_y_btn = { panel_x + 90, param_y, 60, 25 };
+            Rectangle axis_z_btn = { panel_x + 160, param_y, 60, 25 };
+
+            if (Button(axis_x_btn, "X")) translate_axis = 0;
+            if (Button(axis_y_btn, "Y")) translate_axis = 1;
+            if (Button(axis_z_btn, "Z")) translate_axis = 2;
+
+            param_y += 40;
+
+            const char* axis_names[] = { "X", "Y", "Z" };
+            DrawTextEx(fonts[FONT_MAIN], "Смещение по оси:",(Vector2) {.x = panel_x + 10, .y = param_y},16, 0, BLACK);
+
+            GuiSliderBar((Rectangle) { panel_x + 40, param_y + 25, 120, 20 }, "-10", "10", & temp_translation[translate_axis], -10.0f, 10.0f);
+
+            translation.x = temp_translation[0];
+            translation.y = temp_translation[1];
+            translation.z = temp_translation[2];
+
+            param_y += 50;
+
+        } break;
+
+        case MODE_ROTATE: {
+            DrawTextEx(fonts[FONT_MAIN], "Ось вращения:",(Vector2) {.x = panel_x + 10, .y = param_y},16, 0, BLACK);
+            param_y += 25;
+
+            Rectangle axis_x_btn = { panel_x + 20, param_y, 60, 25 };
+            Rectangle axis_y_btn = { panel_x + 90, param_y, 60, 25 };
+            Rectangle axis_z_btn = { panel_x + 160, param_y, 60, 25 };
+
+            static int prev_rotate_axis = -1;
+
+            if (Button(axis_x_btn, "X")) {
+                rotate_axis = 0;
+                rotation_axis = (Vector3){ 1, 0, 0 };
+            }
+            if (Button(axis_y_btn, "Y")) {
+                rotate_axis = 1;
+                rotation_axis = (Vector3){ 0, 1, 0 };
+            }
+            if (Button(axis_z_btn, "Z")) {
+                rotate_axis = 2;
+                rotation_axis = (Vector3){ 0, 0, 1 };
+            }
+
+
+            param_y += 40;
+
+            DrawTextEx(fonts[FONT_MAIN], "Угол поворота:",(Vector2) {.x = panel_x + 10, .y = param_y},16, 0, BLACK);
+            param_y += 25;
+
+            GuiSliderBar((Rectangle) { panel_x + 20, param_y, 150, 20 }, "0", "360", & rotation_angles[rotate_axis], 0.0f, 360.0f);
+            temp_rotation_angle = rotation_angles[rotate_axis];
+            rotation_angle = temp_rotation_angle * DEG2RAD;
+
+        } break;
+
+        case MODE_SCALE: {
+            DrawTextEx(fonts[FONT_MAIN], "Масштабирование:",(Vector2) {.x = panel_x + 10, .y = param_y},16, 0, BLACK);
+            param_y += 25;
+
+            DrawTextEx(fonts[FONT_MAIN], "Масштаб X:",(Vector2) {.x = panel_x + 10, .y = param_y},14, 0, BLACK);
+            GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "3", & temp_scale[0], 0.1f, 3.0f);
+            scale.x = temp_scale[0];
+            param_y += 25;
+
+            DrawTextEx(fonts[FONT_MAIN], "Масштаб Y:",(Vector2) {.x = panel_x + 10, .y = param_y },14, 0, BLACK);
+            GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "3", & temp_scale[1], 0.1f, 3.0f);
+            scale.y = temp_scale[1];
+            param_y += 25;
+
+            DrawTextEx(fonts[FONT_MAIN], "Масштаб Z:",(Vector2) {.x = panel_x + 10, .y = param_y},14, 0, BLACK);
+            GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "3", & temp_scale[2], 0.1f, 3.0f);
+            scale.z = temp_scale[2];
+
+        } break;
+
+        case MODE_NONE:
+        default: break;
+        }
+
+
+        BeginMode3D(camera);
+
+        if (poly_initialized) {
+            Polyhedron_draw(&current_poly, user_transform);
+        }
+
+        DrawLine3D((Vector3) { 0, 0, 0 }, (Vector3) { 3, 0, 0 }, RED);
+        DrawLine3D((Vector3) { 0, 0, 0 }, (Vector3) { 0, 3, 0 }, GREEN);
+        DrawLine3D((Vector3) { 0, 0, 0 }, (Vector3) { 0, 0, 3 }, BLUE);
+
+        EndMode3D();
 
         EndDrawing();
     }
+    Polyhedron_free(&tetra);
+    Polyhedron_free(&hexa);
+    Polyhedron_free(&octa);
+    Polyhedron_free(&ico);
+    Polyhedron_free(&dodeca);
 }
 
 void init() {
@@ -116,4 +323,28 @@ void DropdownMenu(Rectangle bounds, int* selectedOption, bool* showDropdown, int
             button_cnt++;
         }
     }
+}
+
+
+void change_polyhedron(int new_selection) {
+    selected_polygon = new_selection;
+
+    if (poly_initialized) {
+        Polyhedron_free(&current_poly);
+    }
+
+    switch (new_selection) {
+    case 0: Polyhedron_createTetrahedron(&current_poly); break;
+    case 1: Polyhedron_createHexahedron(&current_poly); break;
+    case 2: Polyhedron_createOctahedron(&current_poly); break;
+    case 3: Polyhedron_createIcosahedron(&current_poly); break;
+    //case 4: Polyhedron_createDodecahedron(&current_poly); break;
+    }
+
+    poly_initialized = true;
+
+    translation = (Vector3){ 0 };
+    rotation_angle = 0;
+    rotation_axis = (Vector3){ 0, 1, 0 };
+    scale = (Vector3){ 1, 1, 1 };
 }
