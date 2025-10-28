@@ -211,46 +211,21 @@ void Polyhedron_draw(Polyhedron* poly, Matrix transform) {
 
     for (size_t i = 0; i < poly->faces.len; i++) {
         Face face = poly->faces.head[i];
+        int vertexCount = face.vertexIndices.len;
 
-        if (face.vertexIndices.len == 3) {
-            Vector3 v1 = transformedVertices[face.vertexIndices.head[0]];
-            Vector3 v2 = transformedVertices[face.vertexIndices.head[1]];
-            Vector3 v3 = transformedVertices[face.vertexIndices.head[2]];
+        if (vertexCount < 3) continue; 
 
-            DrawTriangle3D(v1, v2, v3, poly->color);
-
+        Vector3 first = transformedVertices[face.vertexIndices.head[0]];
+        for (int j = 1; j < vertexCount - 1; j++) {
+            Vector3 v2 = transformedVertices[face.vertexIndices.head[j]];
+            Vector3 v3 = transformedVertices[face.vertexIndices.head[j + 1]];
+            DrawTriangle3D(first, v2, v3, poly->color);
         }
-        else if (face.vertexIndices.len == 4) {
-            Vector3 v1 = transformedVertices[face.vertexIndices.head[0]];
-            Vector3 v2 = transformedVertices[face.vertexIndices.head[1]];
-            Vector3 v3 = transformedVertices[face.vertexIndices.head[2]];
-            Vector3 v4 = transformedVertices[face.vertexIndices.head[3]];
 
-            DrawTriangle3D(v1, v2, v3, poly->color);
-            DrawTriangle3D(v1, v3, v4, poly->color);
-
-        }
-        else if (face.vertexIndices.len == 5) {
-            Vector3 v1 = transformedVertices[face.vertexIndices.head[0]];
-            Vector3 v2 = transformedVertices[face.vertexIndices.head[1]];
-            Vector3 v3 = transformedVertices[face.vertexIndices.head[2]];
-            Vector3 v4 = transformedVertices[face.vertexIndices.head[3]];
-            Vector3 v5 = transformedVertices[face.vertexIndices.head[4]];
-
-            DrawTriangle3D(v1, v2, v3, poly->color);
-            DrawTriangle3D(v1, v3, v4, poly->color);
-            DrawTriangle3D(v1, v4, v5, poly->color);
-        }
-    }
-
-    for (size_t i = 0; i < poly->faces.len; i++) {
-        Face face = poly->faces.head[i];
-
-        for (int j = 0; j < face.vertexIndices.len; j++) {
-            int next = (j + 1) % face.vertexIndices.len;
+        for (int j = 0; j < vertexCount; j++) {
+            int next = (j + 1) % vertexCount;
             int idx1 = face.vertexIndices.head[j];
             int idx2 = face.vertexIndices.head[next];
-
             DrawLine3D(transformedVertices[idx1], transformedVertices[idx2], BLACK);
         }
     }
