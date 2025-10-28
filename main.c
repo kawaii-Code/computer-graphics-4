@@ -52,14 +52,10 @@ int main(int argc, char **argv) {
     current_poly = tetra;
     poly_initialized = true;
 
-    Matrix transform = MatrixIdentity();
-
 
     while (!WindowShouldClose()) {
         Window_Info window = get_window_info();
         SetWindowTitle("Лаба 5");
-
-        Vector2 current_mouse_position = GetMousePosition();
 
         typedef enum {
             MODE_NONE,
@@ -96,8 +92,7 @@ int main(int argc, char **argv) {
         if (IsKeyDown(KEY_Q)) camera.position.y -= 0.1f;
         if (IsKeyDown(KEY_E)) camera.position.y += 0.1f;
 
-        //Matrix user_transform = CreateTransformMatrix(translation, rotation_angles, rotation_axis, scale);
-        Matrix user_transform = CreateTransformMatrix(&current_poly, translation, rotation_angles, rotation_axis, scale);
+        Matrix user_transform = CreateTransformMatrix(&current_poly, translation, rotation_angles, scale);
 
         BeginDrawing();
         ClearBackground(ui_background_color);

@@ -264,9 +264,9 @@ Matrix CreateRotationX(float angle) {
     float sinA = sinf(angle);
     return (Matrix) {
         1, 0, 0, 0,
-            0, cosA, -sinA, 0,
-            0, sinA, cosA, 0,
-            0, 0, 0, 1
+        0, cosA, -sinA, 0,
+        0, sinA, cosA, 0,
+        0, 0, 0, 1
     };
 }
 
@@ -294,7 +294,7 @@ Matrix CreateRotationZ(float angle) {
     };
 }
 
-Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, float rotation_angles[3], Vector3 rotationAxis, Vector3 scale) {
+Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, float rotation_angles[3], Vector3 scale) {
     Matrix transform = MatrixIdentity();
 
     Matrix toOrigin = CreateTranslationMatrix((Vector3) { -poly->center.x, -poly->center.y, -poly->center.z });
