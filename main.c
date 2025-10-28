@@ -25,10 +25,10 @@ const char* polyhedron_names[] = {
     "Тетраэдр",
     "Гексаэдр (Куб)",
     "Октаэдр",
-    "Икосаэдр"
-    //"Додекаэдр"
+    "Икосаэдр",
+    "Додекаэдр"
 };
-const int polyhedron_count = 4;
+const int polyhedron_count = 5;
 
 int main(int argc, char **argv) {
     init();
@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
     Polyhedron_createHexahedron(&hexa);
     Polyhedron_createOctahedron(&octa);
     Polyhedron_createIcosahedron(&ico);
-    //Polyhedron_createDodecahedron(&dodeca);
+    Polyhedron_createDodecahedron(&dodeca);
 
     current_poly = tetra;
     poly_initialized = true;
@@ -388,7 +388,7 @@ void change_polyhedron(int new_selection) {
     case 1: Polyhedron_createHexahedron(&current_poly); break;
     case 2: Polyhedron_createOctahedron(&current_poly); break;
     case 3: Polyhedron_createIcosahedron(&current_poly); break;
-    //case 4: Polyhedron_createDodecahedron(&current_poly); break;
+    case 4: Polyhedron_createDodecahedron(&current_poly); break;
     }
 
     poly_initialized = true;

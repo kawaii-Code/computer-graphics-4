@@ -154,52 +154,53 @@ void Polyhedron_createIcosahedron(Polyhedron* poly) {
     poly->color = YELLOW;
 }
 
-//void Polyhedron_createDodecahedron(Polyhedron* poly) {
-//    Polyhedron_init(poly);
-//
-//    float phi = (1.0f + sqrtf(5.0f)) / 2.0f; // золотое сечение ≈ 1.618
-//
-//    Vector3 vertices[20] = {
-//        // (±1, ±1, ±1)
-//        { 1,  1,  1}, { 1,  1, -1}, { 1, -1,  1}, { 1, -1, -1},
-//        {-1,  1,  1}, {-1,  1, -1}, {-1, -1,  1}, {-1, -1, -1},
-//
-//        // (0, ±1/φ, ±φ)
-//        {0,  1 / phi,  phi}, {0,  1 / phi, -phi}, {0, -1 / phi,  phi}, {0, -1 / phi, -phi},
-//
-//        // (±1/φ, ±φ, 0)
-//        { 1 / phi,  phi, 0}, { 1 / phi, -phi, 0}, {-1 / phi,  phi, 0}, {-1 / phi, -phi, 0},
-//
-//        // (±φ, 0, ±1/φ)
-//        { phi, 0,  1 / phi}, { phi, 0, -1 / phi}, {-phi, 0,  1 / phi}, {-phi, 0, -1 / phi}
-//    };
-//
-//    for (int i = 0; i < 20; i++) {
-//        Vector3 normalized = Vector3Normalize(vertices[i]);
-//        Polyhedron_addVertex(poly, normalized);
-//    }
-//
-//    int faces[12][5] = {
-//        {0, 8, 10, 2, 16},
-//        {0, 16, 18, 1, 12},
-//        {0, 12, 14, 4, 8},
-//        {3, 19, 17, 2, 10},
-//        {3, 10, 8, 4, 11},
-//        {3, 11, 15, 6, 19},
-//        {5, 13, 12, 1, 9},
-//        {5, 9, 11, 4, 14},
-//        {5, 14, 15, 7, 13},
-//        {7, 15, 11, 9, 1},
-//        {7, 1, 18, 6, 15},
-//        {7, 13, 5, 17, 19}
-//    };
-//
-//    for (int i = 0; i < 12; i++) {
-//        Polyhedron_addFace(poly, faces[i], 5);
-//    }
-//
-//    Polyhedron_updateCenter(poly);
-//}
+void Polyhedron_createDodecahedron(Polyhedron* poly) {
+    Polyhedron_init(poly);
+
+    float phi = (1.0f + sqrtf(5.0f)) / 2.0f; // золотое сечение ≈ 1.618
+
+    Vector3 vertices[20] = {
+        // (±1, ±1, ±1)
+        { 1,  1,  1}, { 1,  1, -1}, { 1, -1,  1}, { 1, -1, -1},
+        {-1,  1,  1}, {-1,  1, -1}, {-1, -1,  1}, {-1, -1, -1},
+
+        // (0, ±1/φ, ±φ)
+        {0,  1 / phi,  phi}, {0,  1 / phi, -phi}, {0, -1 / phi,  phi}, {0, -1 / phi, -phi},
+
+        // (±1/φ, ±φ, 0)
+        { 1 / phi,  phi, 0}, { 1 / phi, -phi, 0}, {-1 / phi,  phi, 0}, {-1 / phi, -phi, 0},
+
+        // (±φ, 0, ±1/φ)
+        { phi, 0,  1 / phi}, { phi, 0, -1 / phi}, {-phi, 0,  1 / phi}, {-phi, 0, -1 / phi}
+    };
+
+    for (int i = 0; i < 20; i++) {
+        Vector3 normalized = Vector3Normalize(vertices[i]);
+        Polyhedron_addVertex(poly, normalized);
+    }
+
+    int faces[12][5] = {
+        {0, 8, 10, 2, 16},
+        {0, 16, 17, 1, 12},
+        {0, 12, 14, 4, 8},
+        {17, 3, 11, 9, 1},
+        {2, 10, 6, 15, 13},
+        {13, 15, 7, 11, 3},
+        {17, 16, 2, 13, 3},
+        {14, 5, 19, 18, 4},
+        {9, 11, 7, 19, 5},
+        {18, 19, 7, 15,6},
+        {12, 1, 9, 5, 14},
+        {4, 18, 6, 10, 8}
+    }; 
+
+    for (int i = 0; i < 12; i++) {
+        Polyhedron_addFace(poly, faces[i], 5);
+    }
+
+    Polyhedron_updateCenter(poly);
+    poly->color = PINK;
+}
 
 void Polyhedron_draw(Polyhedron* poly, Matrix transform) {
     if (poly->vertices.len == 0 || poly->faces.len == 0) return;
