@@ -85,6 +85,8 @@ int main(int argc, char **argv) {
         temp_scale[1] = scale.y;
         temp_scale[2] = scale.z;
 
+        bool rotate_around_center = false;
+
         //UpdateCamera(&camera, CAMERA_ORBITAL);
         
         if (IsKeyDown(KEY_W)) camera.position.z -= 0.1f;
@@ -94,7 +96,8 @@ int main(int argc, char **argv) {
         if (IsKeyDown(KEY_Q)) camera.position.y -= 0.1f;
         if (IsKeyDown(KEY_E)) camera.position.y += 0.1f;
 
-        Matrix user_transform = CreateTransformMatrix(translation, rotation_angles, rotation_axis, scale);
+        //Matrix user_transform = CreateTransformMatrix(translation, rotation_angles, rotation_axis, scale);
+        Matrix user_transform = CreateTransformMatrix(&current_poly, translation, rotation_angles, rotation_axis, scale);
 
         BeginDrawing();
         ClearBackground(ui_background_color);
@@ -134,6 +137,7 @@ int main(int argc, char **argv) {
             temp_translation[0] = temp_translation[1] = temp_translation[2] = 0;
             temp_rotation_angle = 0;
             temp_scale[0] = temp_scale[1] = temp_scale[2] = 1;
+            rotation_angles[0] = rotation_angles[1] = rotation_angles[2] = 0;
         }
 
         int panel_x = 240;
@@ -164,7 +168,7 @@ int main(int argc, char **argv) {
             const char* axis_names[] = { "X", "Y", "Z" };
             DrawTextEx(fonts[FONT_MAIN], "Смещение по оси:",(Vector2) {.x = panel_x + 10, .y = param_y},16, 0, BLACK);
 
-            GuiSliderBar((Rectangle) { panel_x + 40, param_y + 25, 120, 20 }, "-10", "10", & temp_translation[translate_axis], -10.0f, 10.0f);
+            GuiSliderBar((Rectangle) { panel_x + 40, param_y + 25, 120, 20 }, "-20", "20", & temp_translation[translate_axis], -20.0f, 20.0f);
 
             translation.x = temp_translation[0];
             translation.y = temp_translation[1];
@@ -214,18 +218,64 @@ int main(int argc, char **argv) {
             param_y += 25;
 
             DrawTextEx(fonts[FONT_MAIN], "Масштаб X:",(Vector2) {.x = panel_x + 10, .y = param_y},14, 0, BLACK);
-            GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "3", & temp_scale[0], 0.1f, 3.0f);
+            GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "10", & temp_scale[0], 0.1f, 10.0f);
             scale.x = temp_scale[0];
             param_y += 25;
 
             DrawTextEx(fonts[FONT_MAIN], "Масштаб Y:",(Vector2) {.x = panel_x + 10, .y = param_y },14, 0, BLACK);
-            GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "3", & temp_scale[1], 0.1f, 3.0f);
+            GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "10", & temp_scale[1], 0.1f, 10.0f);
             scale.y = temp_scale[1];
             param_y += 25;
 
             DrawTextEx(fonts[FONT_MAIN], "Масштаб Z:",(Vector2) {.x = panel_x + 10, .y = param_y},14, 0, BLACK);
-            GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "3", & temp_scale[2], 0.1f, 3.0f);
+            GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "10", & temp_scale[2], 0.1f, 10.0f);
             scale.z = temp_scale[2];
+            param_y += 25;
+
+            DrawTextEx(fonts[FONT_MAIN], "Общий масштаб:", (Vector2) { panel_x + 10, param_y }, 14, 0, BLACK);
+            static float uniform_scale = 1.0f;  
+            static float previous_scale = 1.0f;
+            if (GuiSliderBar((Rectangle) { panel_x + 120, param_y, 120, 20 }, "0.1", "10", & uniform_scale, 0.1f, 10.0f)) {
+                float scale_factor = uniform_scale / previous_scale;
+
+                float new_scale[3];
+                for (int i = 0; i < 3; i++) {
+                    new_scale[i] = temp_scale[i] * scale_factor;
+                }
+
+                float min_scale = fminf(fminf(new_scale[0], new_scale[1]), new_scale[2]);
+                float max_scale = fmaxf(fmaxf(new_scale[0], new_scale[1]), new_scale[2]);
+
+                if (min_scale >= 0.1f && max_scale <= 10.0f) {
+                    for (int i = 0; i < 3; i++) {
+                        temp_scale[i] = new_scale[i];
+                    }
+                }
+                else {
+                    if (min_scale < 0.1f) {
+                        uniform_scale = 0.1f / (min_scale / uniform_scale);
+                    }
+                    else {
+                        uniform_scale = 10.0f / (max_scale / uniform_scale);
+                    }
+                    scale_factor = uniform_scale / previous_scale;
+                    for (int i = 0; i < 3; i++) {
+                        temp_scale[i] *= scale_factor;
+                        if (temp_scale[i] < 0.1f) temp_scale[i] = 0.1f;
+                        if (temp_scale[i] > 10.0f) temp_scale[i] = 10.0f;
+                    }
+                }
+
+                scale.x = temp_scale[0];
+                scale.y = temp_scale[1];
+                scale.z = temp_scale[2];
+                previous_scale = uniform_scale;
+            }
+            else {
+                uniform_scale = (temp_scale[0] + temp_scale[1] + temp_scale[2]) / 3.0f;
+                previous_scale = uniform_scale;
+            }
+            param_y += 35;
 
         } break;
 

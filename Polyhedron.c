@@ -318,16 +318,23 @@ Matrix CreateRotationZ(float angle) {
     };
 }
 
-Matrix CreateTransformMatrix(Vector3 translation, float rotation_angles[3], Vector3 rotationAxis, Vector3 scale) {
+Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, float rotation_angles[3], Vector3 rotationAxis, Vector3 scale) {
     Matrix transform = MatrixIdentity();
 
-    transform = MatrixMultiply(transform, MatrixScale(scale.x, scale.y, scale.z));
+    Matrix toOrigin = CreateTranslationMatrix((Vector3) { -poly->center.x, -poly->center.y, -poly->center.z });
+
+    Matrix scaleMatrix = CreateScaleMatrix(scale);
+
+    Matrix fromOrigin = CreateTranslationMatrix(poly->center);
+
+    Matrix centerScale = MatrixMultiply(MatrixMultiply(toOrigin, scaleMatrix), fromOrigin);
+    transform = MatrixMultiply(transform, centerScale);
 
     transform = MatrixMultiply(transform, CreateRotationX(rotation_angles[0] * DEG2RAD));
     transform = MatrixMultiply(transform, CreateRotationY(rotation_angles[1] * DEG2RAD));
     transform = MatrixMultiply(transform, CreateRotationZ(rotation_angles[2] * DEG2RAD));
 
-    transform = MatrixMultiply(transform, MatrixTranslate(translation.x, translation.y, translation.z));
+    transform = MatrixMultiply(transform, CreateTranslationMatrix(translation));
 
     return transform;
 }

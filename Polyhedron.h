@@ -35,7 +35,7 @@ Matrix CreateRotationX(float angle);
 Matrix CreateRotationY(float angle);
 Matrix CreateRotationZ(float angle);
 Matrix CreateScaleMatrix(Vector3 scale);
-Matrix CreateTransformMatrix(Vector3 translation, float rotation_angles[3], Vector3 rotationAxis, Vector3 scale);
+Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, float rotation_angles[3], Vector3 rotationAxis, Vector3 scale);
 
 typedef enum {
     TETRAHEDRON,
