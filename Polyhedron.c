@@ -1,6 +1,6 @@
 ﻿#include "polyhedron.h"
 
-static vector(Vector3) originalPositions;
+static VECTOR_TYPE(Vector3) originalPositions;
 
 void Polyhedron_init(Polyhedron* poly) {
     vector_init(poly->vertices);
@@ -16,6 +16,9 @@ void Polyhedron_free(Polyhedron* poly) {
     }
     vector_free(poly->faces);
     vector_free(poly->vertices);
+}
+
+void free_positions() {
     vector_free(originalPositions);
 }
 
@@ -55,6 +58,21 @@ void Polyhedron_updateCenter(Polyhedron* poly) {
     poly->center = Vector3Scale(sum, 1.0f / poly->vertices.len);
 }
 
+Polyhedron* Polyhedron_create() {
+    Polyhedron* poly = malloc(sizeof(Polyhedron));
+    poly->vertices.head = 0;
+    poly->vertices.len = 0;
+    poly->vertices.cap = 0;
+
+    poly->faces.head = 0;
+    poly->faces.len = 0;
+    poly->faces.cap = 0;
+    // vector_init(poly->vertices);
+    // vector_init(poly->faces);
+
+    return poly;
+}
+
 void Polyhedron_calculateNormals(Polyhedron* poly) {
     for (size_t i = 0; i < poly->vertices.len; i++) {
         poly->vertices.head[i].normal = (Vector3){ 0, 0, 0 };
@@ -87,8 +105,8 @@ void Polyhedron_calculateNormals(Polyhedron* poly) {
 }
 
 
-void Polyhedron_createTetrahedron(Polyhedron* poly) {
-    Polyhedron_init(poly);
+Polyhedron* Polyhedron_createTetrahedron() {
+    Polyhedron* poly = Polyhedron_create();
 
     Polyhedron_addVertex(poly, (Vector3) { 1.0f, 1.0f, 1.0f });
     Polyhedron_addVertex(poly, (Vector3) { 1.0f, -1.0f, -1.0f });
@@ -106,10 +124,12 @@ void Polyhedron_createTetrahedron(Polyhedron* poly) {
     Polyhedron_updateCenter(poly);
     Polyhedron_calculateNormals(poly);
     poly->color = RED;
+
+    return poly;
 }
 
-void Polyhedron_createHexahedron(Polyhedron* poly) {
-    Polyhedron_init(poly);
+Polyhedron* Polyhedron_createHexahedron() {
+    Polyhedron* poly = Polyhedron_create();
 
     float s = 1.0f;
     Polyhedron_addVertex(poly, (Vector3) { -s, -s, -s });
@@ -122,12 +142,12 @@ void Polyhedron_createHexahedron(Polyhedron* poly) {
     Polyhedron_addVertex(poly, (Vector3) { -s, s, s });
 
     int faces[6][4] = {
-        {3, 2, 1, 0},
-        {5, 6, 7, 4},
-        {1, 5, 4, 0},
-        {7, 6, 2, 3},
-        {4, 7, 3, 0},
-        {2, 6, 5, 1}
+        {0, 1, 2, 3},
+        {4, 7, 6, 5},
+        {0, 4, 5, 1},
+        {3, 2, 6, 7},
+        {0, 3, 7, 4},
+        {1, 5, 6, 2}
     };
 
     for (int i = 0; i < 6; i++) {
@@ -137,10 +157,12 @@ void Polyhedron_createHexahedron(Polyhedron* poly) {
     Polyhedron_updateCenter(poly);
     Polyhedron_calculateNormals(poly);
     poly->color = GREEN;
+
+    return poly;
 }
 
-void Polyhedron_createOctahedron(Polyhedron* poly) {
-    Polyhedron_init(poly);
+Polyhedron* Polyhedron_createOctahedron() {
+    Polyhedron* poly = Polyhedron_create();
 
     float s = 1.0f;
     Polyhedron_addVertex(poly, (Vector3) { s, 0.0f, 0.0f });
@@ -162,10 +184,12 @@ void Polyhedron_createOctahedron(Polyhedron* poly) {
     Polyhedron_updateCenter(poly);
     Polyhedron_calculateNormals(poly);
     poly->color = BLUE;
+
+    return poly;
 }
 
-void Polyhedron_createIcosahedron(Polyhedron* poly) {
-    Polyhedron_init(poly);
+Polyhedron* Polyhedron_createIcosahedron() {
+    Polyhedron* poly = Polyhedron_create();
 
     float t = (1.0f + sqrtf(5.0f)) / 2.0f;
 
@@ -194,10 +218,12 @@ void Polyhedron_createIcosahedron(Polyhedron* poly) {
     Polyhedron_updateCenter(poly);
     Polyhedron_calculateNormals(poly);
     poly->color = YELLOW;
+
+    return poly;
 }
 
-void Polyhedron_createDodecahedron(Polyhedron* poly) {
-    Polyhedron_init(poly);
+Polyhedron* Polyhedron_createDodecahedron() {
+    Polyhedron* poly = Polyhedron_create();
 
     float phi = (1.0f + sqrtf(5.0f)) / 2.0f; // золотое сечение ≈ 1.618
 
@@ -234,7 +260,7 @@ void Polyhedron_createDodecahedron(Polyhedron* poly) {
         {18, 19, 7, 15,6},
         {12, 1, 9, 5, 14},
         {4, 18, 6, 10, 8}
-    }; 
+    };
 
     for (int i = 0; i < 12; i++) {
         Polyhedron_addFace(poly, faces[i], 5);
@@ -243,6 +269,8 @@ void Polyhedron_createDodecahedron(Polyhedron* poly) {
     Polyhedron_updateCenter(poly);
     Polyhedron_calculateNormals(poly);
     poly->color = PINK;
+
+    return poly;
 }
 
 void Polyhedron_draw(Polyhedron* poly, Matrix transform) {
@@ -257,20 +285,20 @@ void Polyhedron_draw(Polyhedron* poly, Matrix transform) {
         Face face = poly->faces.head[i];
         int vertexCount = face.vertexIndices.len;
 
-        if (vertexCount < 3) continue; 
+        if (vertexCount < 3) continue;
 
         Vector3 first = transformedVertices[face.vertexIndices.head[0]];
         for (int j = 1; j < vertexCount - 1; j++) {
             Vector3 v2 = transformedVertices[face.vertexIndices.head[j]];
             Vector3 v3 = transformedVertices[face.vertexIndices.head[j + 1]];
-            DrawTriangle3D(first, v2, v3, poly->color);
+            DrawTriangle((Vector2){first.x / first.z, first.y / first.z}, (Vector2){v2.x / v2.z, v2.y / v2.z}, (Vector2){v3.x / v3.z, v3.y / v3.z}, poly->color);
         }
 
         for (int j = 0; j < vertexCount; j++) {
             int next = (j + 1) % vertexCount;
             int idx1 = face.vertexIndices.head[j];
             int idx2 = face.vertexIndices.head[next];
-            DrawLine3D(transformedVertices[idx1], transformedVertices[idx2], BLACK);
+            DrawLine(transformedVertices[idx1].x / transformedVertices[idx1].z, transformedVertices[idx1].y / transformedVertices[idx1].z, transformedVertices[idx2].x / transformedVertices[idx2].z, transformedVertices[idx2].y / transformedVertices[idx2].z, BLACK);
         }
     }
 
@@ -279,6 +307,35 @@ void Polyhedron_draw(Polyhedron* poly, Matrix transform) {
     }*/
 
     free(transformedVertices);
+}
+
+VECTOR_TYPE(Vector3)* Polyhedron_transform(Polyhedron* poly, Matrix transform) {
+    VECTOR_TYPE(Vector3)* verts = malloc(sizeof(VECTOR_TYPE(Vector3)));
+    vector_init(*verts);
+
+    if (poly->vertices.len == 0 || poly->faces.len == 0) return verts;
+
+    for (size_t i = 0; i < poly->vertices.len; i++) {
+        vector_append(*verts, Vector3Transform(poly->vertices.head[i].position, transform));
+    }
+
+    return verts;
+}
+
+float Polyhedron_bounding_radius(Polyhedron* poly) {
+    VECTOR_TYPE(Vertex) vert = poly->vertices;
+
+    float max_dist = 0;
+
+    for (size_t i = 0; i < vert.len; i++) {
+        Vector3 pos = vector_get(vert, i).position;
+        float tmp = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
+        if (tmp > max_dist) {
+            max_dist = tmp;
+        }
+    }
+
+    return sqrtf(max_dist);
 }
 
 // Матрица смещения
@@ -364,19 +421,15 @@ Matrix CreateReflectionMatrix(char plane) {
             return MatrixIdentity();
     }
 }
+
 Matrix CreateRotationAroundLine(Vector3 p1, Vector3 p2, float angle) {
-    Vector3 axis = Vector3Normalize(Vector3Subtract(p2,p1));
-    float x = axis.x, y = axis.y, z = axis.z;
-    float c = cosf(angle), s = sinf(angle);
-    Matrix R = {
-        c+x*x*(1-c), x*y*(1-c)-z*s, x*z*(1-c)+y*s, 0,
-        y*x*(1-c)+z*s, c+y*y*(1-c), y*z*(1-c)-x*s, 0,
-        z*x*(1-c)-y*s, z*y*(1-c)+x*s, c+z*z*(1-c), 0,
-        0,0,0,1
-    };
-    Matrix T1 = CreateTranslationMatrix((Vector3){-p1.x,-p1.y,-p1.z});
-    Matrix T2 = CreateTranslationMatrix(p1);
-    return MatrixMultiply(MatrixMultiply(T2,R),T1);
+    Vector3 axis = Vector3Normalize(Vector3Subtract(p2, p1));
+
+    Matrix T1 = MatrixTranslate(-p1.x, -p1.y, -p1.z);
+    Matrix R = MatrixRotate(axis, angle);
+    Matrix T2 = MatrixTranslate(p1.x, p1.y, p1.z);
+
+    return MatrixMultiply(MatrixMultiply(T1, R), T2);
 }
 
 Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, Vector3 rotation_angles, Vector3 scale, char reflection_plane, Vector3 line_p1, Vector3 line_p2, float line_angle) {
@@ -392,22 +445,21 @@ Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, Vector3 rota
     Matrix scaleM = CreateScaleMatrix(scale);
     transform = MatrixMultiply(transform, MatrixMultiply(MatrixMultiply(toOrigin, scaleM), fromOrigin));
 
-    transform = MatrixMultiply(transform, CreateRotationX(rotation_angles.x*DEG2RAD));
-    transform = MatrixMultiply(transform, CreateRotationY(rotation_angles.y*DEG2RAD));
-    transform = MatrixMultiply(transform, CreateRotationZ(rotation_angles.z*DEG2RAD));
+    transform = MatrixMultiply(transform, CreateRotationX(rotation_angles.x * DEG2RAD));
+    transform = MatrixMultiply(transform, CreateRotationY(rotation_angles.y * DEG2RAD));
+    transform = MatrixMultiply(transform, CreateRotationZ(rotation_angles.z * DEG2RAD));
 
     if (!Vector3Equals(line_p1,line_p2)) transform = MatrixMultiply(transform, CreateRotationAroundLine(line_p1,line_p2,line_angle));
 
     transform = MatrixMultiply(transform, CreateTranslationMatrix(translation));
+
     return transform;
 }
+
 
 bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename) {
     FILE* file = fopen(filename, "r");
     if (!file) { return false; }
-
-    Polyhedron_free(poly);
-    Polyhedron_init(poly);
 
     char line[256];
 

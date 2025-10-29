@@ -1,6 +1,7 @@
 #ifndef POLYHEDRON_H
 #define POLYHEDRON_H
 
+#include "camera.h"
 #include "third_party/include/raylib.h"
 #include "third_party/include/raymath.h"
 #include "vector.h"
@@ -17,15 +18,21 @@ typedef struct {
     Vector2 texCoord;
 } Vertex;
 
+vector(int);
+
 // Грань
 typedef struct {
-    vector(int) vertexIndices;
+    VECTOR_TYPE(int) vertexIndices;
 } Face;
+
+vector(Vertex);
+vector(Face);
+vector(Vector3);
 
 // Многогранник
 typedef struct {
-    vector(Vertex) vertices;
-    vector(Face) faces;
+    VECTOR_TYPE(Vertex) vertices;
+    VECTOR_TYPE(Face) faces;
     Color color;
     Vector3 center;
 } Polyhedron;
@@ -53,15 +60,22 @@ typedef enum {
     DODECAHEDRON
 } PolyhedronType;
 
-void Polyhedron_createTetrahedron(Polyhedron* poly);
-void Polyhedron_createHexahedron(Polyhedron* poly);
-void Polyhedron_createOctahedron(Polyhedron* poly);
-void Polyhedron_createIcosahedron(Polyhedron* poly);
-void Polyhedron_createDodecahedron(Polyhedron* poly);
+Polyhedron* Polyhedron_create();
+Polyhedron* Polyhedron_createTetrahedron();
+Polyhedron* Polyhedron_createHexahedron();
+Polyhedron* Polyhedron_createOctahedron();
+Polyhedron* Polyhedron_createIcosahedron();
+Polyhedron* Polyhedron_createDodecahedron();
 
 void Polyhedron_draw(Polyhedron* poly, Matrix transform);
+VECTOR_TYPE(Vector3)* Polyhedron_transform(Polyhedron* poly, Matrix transform);
+
 
 bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename);
 bool Polyhedron_saveToObj(Polyhedron* poly, const char* filename);
 
+
+float Polyhedron_bounding_radius(Polyhedron* poly);
+
+void free_positions();
 #endif

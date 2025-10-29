@@ -6,9 +6,10 @@
 #include <string.h>
 
 #define VECTOR_TYPE(type) struct vector_##type
+#define VECTOR_PTR_TYPE(type) struct vector_ptr_##type
 
 #define vector(type) struct vector_##type {type *head; size_t len; size_t cap; }
-#define vector_ptr(type) struct vector_##type_ptr {type** head; size_t len; size_t cap; }
+#define vector_ptr(type) struct vector_ptr_##type {type** head; size_t len; size_t cap; }
 
 #define vector_new() {0,0,0}
 #define vector_init(vec) do {(vec).head=0; (vec).len=0; (vec).cap=0;} while(0)

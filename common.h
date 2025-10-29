@@ -36,7 +36,6 @@
 #define TO_CLAY_COLOR(color) ((Clay_Color){ .r = color.r, .b = color.b, .g = color.g, .a = color.a })
 #define ARRAY_LEN(array) (sizeof(array) / sizeof(*array))
 
-
 typedef enum {
     FONT_FOR_DEBUG_WINDOW = 0,
     FONT_MAIN,
@@ -88,8 +87,8 @@ void            Clay_Raylib_Render(Clay_RenderCommandArray renderCommands, Font*
 Clay_Dimensions Raylib_MeasureText(Clay_StringSlice text, Clay_TextElementConfig *config, void *userData);
 
 
-const static int menu_window_width = 400;
-const static int menu_window_height = 300;
+const static int menu_window_width = 1200;
+const static int menu_window_height = 800;
 
 const static int task_window_width = 800 * 2;
 const static int task_window_height = 600 * 2;

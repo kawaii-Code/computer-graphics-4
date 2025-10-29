@@ -15,6 +15,10 @@ add_executable(${PROJECT_NAME}
         stack.h
         Polyhedron.c
         Polyhedron.h
+        scene.h
+        scene.c
+        camera.h
+        camera.c
 )
 
 file(GLOB RAYLIB_FILES "third_party/lib/*raylib.*")
