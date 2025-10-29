@@ -341,7 +341,7 @@ Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, float rotati
 
     if (reflection_plane != 0) {
         Matrix refl = CreateReflectionMatrix(reflection_plane);
-        transform = MatrixMultiply(refl, transform); // важно умножать в правильном порядке
+        transform = MatrixMultiply(refl, transform);
     }
     Matrix toOrigin = CreateTranslationMatrix(Vector3Negate(poly->center));
     Matrix fromOrigin = CreateTranslationMatrix(poly->center);
