@@ -13,6 +13,8 @@ add_executable(${PROJECT_NAME}
         task3.c
         llist.h
         stack.h
+        Polyhedron.c
+        Polyhedron.h
 )
 
 file(GLOB RAYLIB_FILES "third_party/lib/*raylib.*")

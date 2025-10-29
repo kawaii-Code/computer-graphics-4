@@ -294,23 +294,67 @@ Matrix CreateRotationZ(float angle) {
     };
 }
 
-Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, float rotation_angles[3], Vector3 scale) {
+Matrix CreateReflectionMatrix(char plane) {
+    switch (plane) {
+        case 'X': // x -> -x
+            return (Matrix){
+                -1, 0, 0, 0,
+                 0, 1, 0, 0,
+                 0, 0, 1, 0,
+                 0, 0, 0, 1
+            };
+        case 'Y': // y -> -y
+            return (Matrix){
+                1, 0, 0, 0,
+                0,-1, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1
+           };
+        case 'Z': // z -> -z
+            return (Matrix){
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0,-1, 0,
+                0, 0, 0, 1
+           };
+        default:
+            return MatrixIdentity();
+    }
+}
+Matrix CreateRotationAroundLine(Vector3 p1, Vector3 p2, float angle) {
+    Vector3 axis = Vector3Normalize(Vector3Subtract(p2,p1));
+    float x = axis.x, y = axis.y, z = axis.z;
+    float c = cosf(angle), s = sinf(angle);
+    Matrix R = {
+        c+x*x*(1-c), x*y*(1-c)-z*s, x*z*(1-c)+y*s, 0,
+        y*x*(1-c)+z*s, c+y*y*(1-c), y*z*(1-c)-x*s, 0,
+        z*x*(1-c)-y*s, z*y*(1-c)+x*s, c+z*z*(1-c), 0,
+        0,0,0,1
+    };
+    Matrix T1 = CreateTranslationMatrix((Vector3){-p1.x,-p1.y,-p1.z});
+    Matrix T2 = CreateTranslationMatrix(p1);
+    return MatrixMultiply(MatrixMultiply(T2,R),T1);
+}
+
+Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, float rotation_angles[3], Vector3 scale, char reflection_plane, Vector3 line_p1, Vector3 line_p2, float line_angle) {
     Matrix transform = MatrixIdentity();
 
-    Matrix toOrigin = CreateTranslationMatrix((Vector3) { -poly->center.x, -poly->center.y, -poly->center.z });
-
-    Matrix scaleMatrix = CreateScaleMatrix(scale);
-
+    if (reflection_plane != 0) {
+        Matrix refl = CreateReflectionMatrix(reflection_plane);
+        transform = MatrixMultiply(refl, transform); // важно умножать в правильном порядке
+    }
+    Matrix toOrigin = CreateTranslationMatrix(Vector3Negate(poly->center));
     Matrix fromOrigin = CreateTranslationMatrix(poly->center);
 
-    Matrix centerScale = MatrixMultiply(MatrixMultiply(toOrigin, scaleMatrix), fromOrigin);
-    transform = MatrixMultiply(transform, centerScale);
+    Matrix scaleM = CreateScaleMatrix(scale);
+    transform = MatrixMultiply(transform, MatrixMultiply(MatrixMultiply(toOrigin, scaleM), fromOrigin));
 
-    transform = MatrixMultiply(transform, CreateRotationX(rotation_angles[0] * DEG2RAD));
-    transform = MatrixMultiply(transform, CreateRotationY(rotation_angles[1] * DEG2RAD));
-    transform = MatrixMultiply(transform, CreateRotationZ(rotation_angles[2] * DEG2RAD));
+    transform = MatrixMultiply(transform, CreateRotationX(rotation_angles[0]*DEG2RAD));
+    transform = MatrixMultiply(transform, CreateRotationY(rotation_angles[1]*DEG2RAD));
+    transform = MatrixMultiply(transform, CreateRotationZ(rotation_angles[2]*DEG2RAD));
+
+    if (!Vector3Equals(line_p1,line_p2)) transform = MatrixMultiply(transform, CreateRotationAroundLine(line_p1,line_p2,line_angle));
 
     transform = MatrixMultiply(transform, CreateTranslationMatrix(translation));
-
     return transform;
 }

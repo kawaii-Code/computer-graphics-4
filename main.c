@@ -18,6 +18,11 @@ Vector3 rotation_axis = { 0, 1, 0 };
 float rotation_angle = 0;
 Vector3 scale = { 1, 1, 1 };
 
+char reflection_plane = 0; // 'X', 'Y', 'Z', или 0
+Vector3 line_p1 = {0,0,0};
+Vector3 line_p2 = {0,0,0};
+float line_angle = 0;
+
 Polyhedron current_poly;
 bool poly_initialized = false;
 
@@ -40,7 +45,7 @@ int main(int argc, char **argv) {
     camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
-    camera.projection = CAMERA_PERSPECTIVE;//вот вопрос, нам нужно самим это сделать?
+    camera.projection = CAMERA_PERSPECTIVE;
 
     Polyhedron tetra, hexa, octa, ico, dodeca;
     Polyhedron_createTetrahedron(&tetra);
@@ -52,6 +57,7 @@ int main(int argc, char **argv) {
     current_poly = tetra;
     poly_initialized = true;
 
+    static bool isometric_mode = false;
 
     while (!WindowShouldClose()) {
         Window_Info window = get_window_info();
@@ -61,18 +67,25 @@ int main(int argc, char **argv) {
             MODE_NONE,
             MODE_TRANSLATE,
             MODE_ROTATE,
-            MODE_SCALE
+            MODE_SCALE,
+            MODE_REFLECT,
+            MODE_ARBITRARY_ROT,
         } TransformMode;
 
         static TransformMode current_mode = MODE_NONE;
 
-        static int translate_axis = 0; // 0=X, 1=Y, 2=Z
-        static int rotate_axis = 1;    // 0=X, 1=Y, 2=Z
+        static int translate_axis = 0;
+        static int rotate_axis = 1;
 
         static float temp_translation[3] = { 0 };
         static float temp_rotation_angle = 0;
         static float temp_scale[3] = { 1, 1, 1 };
         static float rotation_angles[3] = { 0, 0, 0 };
+
+        static char temp_reflection_plane = 0;
+        static Vector3 temp_line_p1 = {0};
+        static Vector3 temp_line_p2 = {0};
+        static float temp_line_angle = 0;
 
         temp_translation[0] = translation.x;
         temp_translation[1] = translation.y;
@@ -81,10 +94,6 @@ int main(int argc, char **argv) {
         temp_scale[1] = scale.y;
         temp_scale[2] = scale.z;
 
-        bool rotate_around_center = false;
-
-        //UpdateCamera(&camera, CAMERA_ORBITAL);
-        
         if (IsKeyDown(KEY_W)) camera.position.z -= 0.1f;
         if (IsKeyDown(KEY_S)) camera.position.z += 0.1f;
         if (IsKeyDown(KEY_A)) camera.position.x -= 0.1f;
@@ -92,7 +101,16 @@ int main(int argc, char **argv) {
         if (IsKeyDown(KEY_Q)) camera.position.y -= 0.1f;
         if (IsKeyDown(KEY_E)) camera.position.y += 0.1f;
 
-        Matrix user_transform = CreateTransformMatrix(&current_poly, translation, rotation_angles, scale);
+        Matrix user_transform = CreateTransformMatrix(
+            &current_poly,
+            translation,
+            rotation_angles,
+            scale,
+            reflection_plane,
+            line_p1,
+            line_p2,
+            line_angle
+        );
 
         BeginDrawing();
         ClearBackground(ui_background_color);
@@ -108,21 +126,21 @@ int main(int argc, char **argv) {
         int button_spacing = 10;
 
         Rectangle translate_btn = { button_x, button_y, button_width, button_height };
-        if (Button(translate_btn, "Смещение")) {
-            current_mode = MODE_TRANSLATE;
-        }
+        if (Button(translate_btn, "Смещение")) current_mode = MODE_TRANSLATE;
 
         Rectangle rotate_btn = { button_x, button_y + button_height + button_spacing, button_width, button_height };
-        if (Button(rotate_btn, "Поворот")) {
-            current_mode = MODE_ROTATE;
-        }
+        if (Button(rotate_btn, "Поворот")) current_mode = MODE_ROTATE;
 
         Rectangle scale_btn = { button_x, button_y + 2 * (button_height + button_spacing), button_width, button_height };
-        if (Button(scale_btn, "Масштаб")) {
-            current_mode = MODE_SCALE;
-        }
+        if (Button(scale_btn, "Масштаб")) current_mode = MODE_SCALE;
 
-        Rectangle reset_btn = { button_x, button_y + 3 * (button_height + button_spacing), button_width, button_height };
+        Rectangle reflect_btn = {button_x, button_y+3*(button_height+button_spacing), button_width, button_height};
+        if (Button(reflect_btn, "Отражение")) current_mode = MODE_REFLECT;
+
+        Rectangle arb_rotate_btn = {button_x, button_y+4*(button_height+button_spacing), button_width, button_height};
+        if (Button(arb_rotate_btn, "Вращение по линии")) current_mode = MODE_ARBITRARY_ROT;
+
+        Rectangle reset_btn = { button_x, button_y + 5 * (button_height + button_spacing), button_width, button_height };
         if (Button(reset_btn, "Сбросить всё")) {
             translation = (Vector3){ 0 };
             rotation_angle = 0;
@@ -133,10 +151,32 @@ int main(int argc, char **argv) {
             temp_rotation_angle = 0;
             temp_scale[0] = temp_scale[1] = temp_scale[2] = 1;
             rotation_angles[0] = rotation_angles[1] = rotation_angles[2] = 0;
+            reflection_plane = 0;
+            line_p1 = (Vector3){0};
+            line_p2 = (Vector3){0};
+            line_angle = 0;
+            current_mode = MODE_NONE;
+            rotation_angles[0] = rotation_angles[1] = rotation_angles[2] = 0;
+        }
+
+        Rectangle iso_btn = { button_x, button_y + 6 * (button_height + button_spacing), button_width, button_height };
+        if (Button(iso_btn, "Изометрия")) {
+            isometric_mode = !isometric_mode;
+            if (isometric_mode) {
+                camera.projection = CAMERA_ORTHOGRAPHIC;
+                camera.position = (Vector3){ 10.0f, 10.0f, 10.0f };
+                camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+                camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+            } else {
+                camera.projection = CAMERA_PERSPECTIVE;
+                camera.position = (Vector3){ 10.0f, 10.0f, 10.0f };
+                camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };
+                camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+            }
         }
 
         int panel_x = 240;
-        int panel_y = button_y + 4 * (button_height + button_spacing) + 10;
+        int panel_y = button_y + 7 * (button_height + button_spacing) + 10;
         int panel_width = 300;
         int panel_height = 200;
 
@@ -160,17 +200,13 @@ int main(int argc, char **argv) {
 
             param_y += 40;
 
-            const char* axis_names[] = { "X", "Y", "Z" };
             DrawTextEx(fonts[FONT_MAIN], "Смещение по оси:",(Vector2) {.x = panel_x + 10, .y = param_y},16, 0, BLACK);
-
             GuiSliderBar((Rectangle) { panel_x + 40, param_y + 25, 120, 20 }, "-20", "20", & temp_translation[translate_axis], -20.0f, 20.0f);
 
             translation.x = temp_translation[0];
             translation.y = temp_translation[1];
             translation.z = temp_translation[2];
-
             param_y += 50;
-
         } break;
 
         case MODE_ROTATE: {
@@ -181,21 +217,9 @@ int main(int argc, char **argv) {
             Rectangle axis_y_btn = { panel_x + 90, param_y, 60, 25 };
             Rectangle axis_z_btn = { panel_x + 160, param_y, 60, 25 };
 
-            static int prev_rotate_axis = -1;
-
-            if (Button(axis_x_btn, "X")) {
-                rotate_axis = 0;
-                rotation_axis = (Vector3){ 1, 0, 0 };
-            }
-            if (Button(axis_y_btn, "Y")) {
-                rotate_axis = 1;
-                rotation_axis = (Vector3){ 0, 1, 0 };
-            }
-            if (Button(axis_z_btn, "Z")) {
-                rotate_axis = 2;
-                rotation_axis = (Vector3){ 0, 0, 1 };
-            }
-
+            if (Button(axis_x_btn, "X")) { rotate_axis = 0; rotation_axis = (Vector3){ 1,0,0 }; }
+            if (Button(axis_y_btn, "Y")) { rotate_axis = 1; rotation_axis = (Vector3){ 0,1,0 }; }
+            if (Button(axis_z_btn, "Z")) { rotate_axis = 2; rotation_axis = (Vector3){ 0,0,1 }; }
 
             param_y += 40;
 
@@ -205,7 +229,6 @@ int main(int argc, char **argv) {
             GuiSliderBar((Rectangle) { panel_x + 20, param_y, 150, 20 }, "0", "360", & rotation_angles[rotate_axis], 0.0f, 360.0f);
             temp_rotation_angle = rotation_angles[rotate_axis];
             rotation_angle = temp_rotation_angle * DEG2RAD;
-
         } break;
 
         case MODE_SCALE: {
@@ -214,13 +237,11 @@ int main(int argc, char **argv) {
 
             DrawTextEx(fonts[FONT_MAIN], "Масштаб X:",(Vector2) {.x = panel_x + 10, .y = param_y},14, 0, BLACK);
             GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "10", & temp_scale[0], 0.1f, 10.0f);
-            scale.x = temp_scale[0];
-            param_y += 25;
+            scale.x = temp_scale[0]; param_y += 25;
 
             DrawTextEx(fonts[FONT_MAIN], "Масштаб Y:",(Vector2) {.x = panel_x + 10, .y = param_y },14, 0, BLACK);
             GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "10", & temp_scale[1], 0.1f, 10.0f);
-            scale.y = temp_scale[1];
-            param_y += 25;
+            scale.y = temp_scale[1]; param_y += 25;
 
             DrawTextEx(fonts[FONT_MAIN], "Масштаб Z:",(Vector2) {.x = panel_x + 10, .y = param_y},14, 0, BLACK);
             GuiSliderBar((Rectangle) { panel_x + 100, param_y, 120, 20 }, "0.1", "10", & temp_scale[2], 0.1f, 10.0f);
@@ -273,31 +294,59 @@ int main(int argc, char **argv) {
             param_y += 35;
 
         } break;
+        case MODE_REFLECT: {
+            DrawTextEx(fonts[FONT_MAIN],"Плоскость отражения:",(Vector2){panel_x+10,param_y},16,0,BLACK); param_y+=25;
+            Rectangle btnX={panel_x+20,param_y,60,25};
+            Rectangle btnY={panel_x+90,param_y,60,25};
+            Rectangle btnZ={panel_x+160,param_y,60,25};
+            Rectangle btnF={panel_x+230,param_y,60,25};
+            if (Button(btnX, "X")) reflection_plane='X';
+            if (Button(btnY, "Y")) reflection_plane='Y';
+            if (Button(btnZ, "Z")) reflection_plane='Z';
+            if (Button(btnF, "Вернуть")) reflection_plane=0;
+        } break;
 
+        case MODE_ARBITRARY_ROT: {
+            DrawTextEx(fonts[FONT_MAIN],"Вращение вокруг линии", (Vector2){panel_x+10,param_y},16,0,BLACK); param_y+=25;
+            GuiSliderBar((Rectangle){panel_x+20,param_y,120,20},"-5","5",&temp_line_p1.x,-20,20);
+            GuiSliderBar((Rectangle){panel_x+150,param_y,120,20},"-5","5",&temp_line_p1.y,-20,20); param_y+=25;
+            GuiSliderBar((Rectangle){panel_x+20,param_y,120,20},"-5","5",&temp_line_p1.z,-20,20);
+            GuiSliderBar((Rectangle){panel_x+150,param_y,120,20},"-5","5",&temp_line_p2.x,-20,20); param_y+=25;
+            GuiSliderBar((Rectangle){panel_x+20,param_y,120,20},"-5","5",&temp_line_p2.y,-20,20);
+            GuiSliderBar((Rectangle){panel_x+150,param_y,120,20},"-5","5",&temp_line_p2.z,-20,20); param_y+=25;
+            GuiSliderBar((Rectangle){panel_x+20,param_y,250,20},"0","360",&temp_line_angle,0,360);
+            line_p1=temp_line_p1; line_p2=temp_line_p2; line_angle=temp_line_angle*DEG2RAD;
+        } break;
         case MODE_NONE:
         default: break;
         }
 
-
         BeginMode3D(camera);
 
-        if (poly_initialized) {
-            Polyhedron_draw(&current_poly, user_transform);
+        if (poly_initialized) Polyhedron_draw(&current_poly, user_transform);
+
+        if (reflection_plane != 0 && poly_initialized) {
+            Vector3 v = current_poly.vertices.head[0].position;  // первая вершина
+            Matrix reflMat = CreateReflectionMatrix(reflection_plane);
+
+            // отражение относительно центра
+            Matrix toOrigin = CreateTranslationMatrix((Vector3){ -current_poly.center.x, -current_poly.center.y, -current_poly.center.z });
+            Matrix fromOrigin = CreateTranslationMatrix(current_poly.center);
+            Matrix fullRefl = MatrixMultiply(fromOrigin, MatrixMultiply(reflMat, toOrigin));
+
+            Vector3 v_after = Vector3Transform(v, fullRefl);
+
+            printf("[DEBUG] plane=%c | before=(%.2f, %.2f, %.2f) -> after=(%.2f, %.2f, %.2f)\n",
+                   reflection_plane, v.x, v.y, v.z, v_after.x, v_after.y, v_after.z);
         }
 
-        DrawLine3D((Vector3) { 0, 0, 0 }, (Vector3) { 3, 0, 0 }, RED);
-        DrawLine3D((Vector3) { 0, 0, 0 }, (Vector3) { 0, 3, 0 }, GREEN);
-        DrawLine3D((Vector3) { 0, 0, 0 }, (Vector3) { 0, 0, 3 }, BLUE);
+        DrawLine3D((Vector3) { 0,0,0 }, (Vector3) {3,0,0}, RED);
+        DrawLine3D((Vector3) { 0,0,0 }, (Vector3) {0,3,0}, GREEN);
+        DrawLine3D((Vector3) { 0,0,0 }, (Vector3) {0,0,3}, BLUE);
 
         EndMode3D();
-
         EndDrawing();
     }
-    Polyhedron_free(&tetra);
-    Polyhedron_free(&hexa);
-    Polyhedron_free(&octa);
-    Polyhedron_free(&ico);
-    Polyhedron_free(&dodeca);
 }
 
 void init() {
