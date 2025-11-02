@@ -83,12 +83,12 @@ void Polyhedron_createHexahedron(Polyhedron* poly) {
     Polyhedron_addVertex(poly, (Vector3) { -s, s, s });
 
     int faces[6][4] = {
-        {0, 1, 2, 3},
-        {4, 7, 6, 5}, 
-        {0, 4, 5, 1}, 
-        {3, 2, 6, 7}, 
-        {0, 3, 7, 4}, 
-        {1, 5, 6, 2} 
+        {3, 2, 1, 0},
+        {5, 6, 7, 4},
+        {1, 5, 4, 0},
+        {7, 6, 2, 3},
+        {4, 7, 3, 0},
+        {2, 6, 5, 1}
     };
 
     for (int i = 0; i < 6; i++) {
