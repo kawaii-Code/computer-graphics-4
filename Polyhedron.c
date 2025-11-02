@@ -20,9 +20,16 @@ void Polyhedron_free(Polyhedron* poly) {
 }
 
 void Polyhedron_addVertex(Polyhedron* poly, Vector3 position) {
-    Vertex v = { position };
+    Polyhedron_addVertexEx(poly, position, (Vector3) { 0, 0, 0 }, (Vector2) { 0, 0 });
+}
+
+void Polyhedron_addVertexEx(Polyhedron* poly, Vector3 position, Vector3 normal, Vector2 texCoord) {
+    Vertex v = {
+        .position = position,
+        .normal = normal,
+        .texCoord = texCoord
+    };
     vector_append(poly->vertices, v);
-    v.normal = (Vector3){ 0, 0, 0 };
     vector_append(originalPositions, position);
 }
 
@@ -48,6 +55,37 @@ void Polyhedron_updateCenter(Polyhedron* poly) {
     poly->center = Vector3Scale(sum, 1.0f / poly->vertices.len);
 }
 
+void Polyhedron_calculateNormals(Polyhedron* poly) {
+    for (size_t i = 0; i < poly->vertices.len; i++) {
+        poly->vertices.head[i].normal = (Vector3){ 0, 0, 0 };
+    }
+
+    for (size_t i = 0; i < poly->faces.len; i++) {
+        Face* face = &poly->faces.head[i];
+
+        if (face->vertexIndices.len >= 3) {
+            Vector3 v0 = poly->vertices.head[face->vertexIndices.head[0]].position;
+            Vector3 v1 = poly->vertices.head[face->vertexIndices.head[1]].position;
+            Vector3 v2 = poly->vertices.head[face->vertexIndices.head[2]].position;
+
+            Vector3 edge1 = Vector3Subtract(v1, v0);
+            Vector3 edge2 = Vector3Subtract(v2, v0);
+
+            Vector3 faceNormal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
+
+            for (size_t j = 0; j < face->vertexIndices.len; j++) {
+                int vertexIndex = face->vertexIndices.head[j];
+                poly->vertices.head[vertexIndex].normal =
+                    Vector3Add(poly->vertices.head[vertexIndex].normal, faceNormal);
+            }
+        }
+    }
+
+    for (size_t i = 0; i < poly->vertices.len; i++) {
+        poly->vertices.head[i].normal = Vector3Normalize(poly->vertices.head[i].normal);
+    }
+}
+
 
 void Polyhedron_createTetrahedron(Polyhedron* poly) {
     Polyhedron_init(poly);
@@ -66,6 +104,7 @@ void Polyhedron_createTetrahedron(Polyhedron* poly) {
     }
 
     Polyhedron_updateCenter(poly);
+    Polyhedron_calculateNormals(poly);
     poly->color = RED;
 }
 
@@ -96,6 +135,7 @@ void Polyhedron_createHexahedron(Polyhedron* poly) {
     }
 
     Polyhedron_updateCenter(poly);
+    Polyhedron_calculateNormals(poly);
     poly->color = GREEN;
 }
 
@@ -120,6 +160,7 @@ void Polyhedron_createOctahedron(Polyhedron* poly) {
     }
 
     Polyhedron_updateCenter(poly);
+    Polyhedron_calculateNormals(poly);
     poly->color = BLUE;
 }
 
@@ -151,6 +192,7 @@ void Polyhedron_createIcosahedron(Polyhedron* poly) {
     }
 
     Polyhedron_updateCenter(poly);
+    Polyhedron_calculateNormals(poly);
     poly->color = YELLOW;
 }
 
@@ -199,6 +241,7 @@ void Polyhedron_createDodecahedron(Polyhedron* poly) {
     }
 
     Polyhedron_updateCenter(poly);
+    Polyhedron_calculateNormals(poly);
     poly->color = PINK;
 }
 
@@ -231,9 +274,9 @@ void Polyhedron_draw(Polyhedron* poly, Matrix transform) {
         }
     }
 
-    for (size_t i = 0; i < poly->vertices.len; i++) {
+    /*for (size_t i = 0; i < poly->vertices.len; i++) {
         DrawSphere(transformedVertices[i], 0.03f, poly->color);
-    }
+    }*/
 
     free(transformedVertices);
 }

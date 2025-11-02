@@ -5,10 +5,16 @@
 #include "third_party/include/raymath.h"
 #include "vector.h"
 
+// Текстурные координаты
+typedef struct {
+    float u, v;
+} TexCoord;
+
 // Вершина
 typedef struct {
     Vector3 position;
     Vector3 normal;
+    Vector2 texCoord;
 } Vertex;
 
 // Грань
@@ -27,6 +33,7 @@ typedef struct {
 void Polyhedron_init(Polyhedron* poly);
 void Polyhedron_free(Polyhedron* poly);
 void Polyhedron_addVertex(Polyhedron* poly, Vector3 position);
+void Polyhedron_addVertexEx(Polyhedron* poly, Vector3 position, Vector3 normal, Vector2 texCoord);
 void Polyhedron_addFace(Polyhedron* poly, int* indices, int count);
 void Polyhedron_updateCenter(Polyhedron* poly);
 
