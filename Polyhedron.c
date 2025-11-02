@@ -401,3 +401,200 @@ Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, Vector3 rota
     transform = MatrixMultiply(transform, CreateTranslationMatrix(translation));
     return transform;
 }
+
+bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename) {
+    FILE* file = fopen(filename, "r");
+    if (!file) { return false; }
+
+    Polyhedron_free(poly);
+    Polyhedron_init(poly);
+
+    char line[256];
+
+    Vector3* tempPositions = NULL;
+    Vector3* tempNormals = NULL;
+    Vector2* tempTexCoords = NULL;
+    Face* tempFaces = NULL;
+
+    size_t tempPositionsCount = 0;
+    size_t tempNormalsCount = 0;
+    size_t tempTexCoordsCount = 0;
+    size_t tempFacesCount = 0;
+
+    size_t tempPositionsCapacity = 0;
+    size_t tempNormalsCapacity = 0;
+    size_t tempTexCoordsCapacity = 0;
+    size_t tempFacesCapacity = 0;
+
+    while (fgets(line, sizeof(line), file)) {
+        if (line[0] == '#' || line[0] == '\n') continue;
+
+        // Вершины (v)
+        if (line[0] == 'v' && line[1] == ' ') {
+            Vector3 pos;
+            if (sscanf(line, "v %f %f %f", &pos.x, &pos.y, &pos.z) == 3) {
+                if (tempPositionsCount >= tempPositionsCapacity) {
+                    tempPositionsCapacity = tempPositionsCapacity == 0 ? 16 : tempPositionsCapacity * 2;
+                    tempPositions = realloc(tempPositions, tempPositionsCapacity * sizeof(Vector3));
+                }
+                tempPositions[tempPositionsCount++] = pos;
+            }
+        }
+        // Нормали (vn)
+        else if (line[0] == 'v' && line[1] == 'n' && line[2] == ' ') {
+            Vector3 normal;
+            if (sscanf(line, "vn %f %f %f", &normal.x, &normal.y, &normal.z) == 3) {
+                if (tempNormalsCount >= tempNormalsCapacity) {
+                    tempNormalsCapacity = tempNormalsCapacity == 0 ? 16 : tempNormalsCapacity * 2;
+                    tempNormals = realloc(tempNormals, tempNormalsCapacity * sizeof(Vector3));
+                }
+                tempNormals[tempNormalsCount++] = normal;
+            }
+        }
+        // Текстурные координаты (vt)
+        else if (line[0] == 'v' && line[1] == 't' && line[2] == ' ') {
+            Vector2 texCoord;
+            if (sscanf(line, "vt %f %f", &texCoord.x, &texCoord.y) == 2) {
+                if (tempTexCoordsCount >= tempTexCoordsCapacity) {
+                    tempTexCoordsCapacity = tempTexCoordsCapacity == 0 ? 16 : tempTexCoordsCapacity * 2;
+                    tempTexCoords = realloc(tempTexCoords, tempTexCoordsCapacity * sizeof(Vector2));
+                }
+                tempTexCoords[tempTexCoordsCount++] = texCoord;
+            }
+        }
+        // Грани (f)
+        else if (line[0] == 'f' && line[1] == ' ') {
+            Face face;
+            vector_init(face.vertexIndices);
+
+            char* token = strtok(line + 2, " \t\n");
+            int vertexCount = 0;
+
+            while (token) {
+                int vIdx = 0, vtIdx = 0, vnIdx = 0;
+
+                if (sscanf(token, "%d/%d/%d", &vIdx, &vtIdx, &vnIdx) == 3) {
+                    if (vIdx > 0 && vIdx <= (int)tempPositionsCount) {
+                        vector_append(face.vertexIndices, vIdx - 1);
+                        vertexCount++;
+                    }
+                }
+                else if (sscanf(token, "%d//%d", &vIdx, &vnIdx) == 2) {
+                    if (vIdx > 0 && vIdx <= (int)tempPositionsCount) {
+                        vector_append(face.vertexIndices, vIdx - 1);
+                        vertexCount++;
+                    }
+                }
+                else if (sscanf(token, "%d/%d", &vIdx, &vtIdx) == 2) {
+                    if (vIdx > 0 && vIdx <= (int)tempPositionsCount) {
+                        vector_append(face.vertexIndices, vIdx - 1);
+                        vertexCount++;
+                    }
+                }
+                else if (sscanf(token, "%d", &vIdx) == 1) {
+                    if (vIdx > 0 && vIdx <= (int)tempPositionsCount) {
+                        vector_append(face.vertexIndices, vIdx - 1);
+                        vertexCount++;
+                    }
+                }
+                token = strtok(NULL, " \t\n");
+            }
+
+            if (face.vertexIndices.len >= 3) {
+                if (tempFacesCount >= tempFacesCapacity) {
+                    tempFacesCapacity = tempFacesCapacity == 0 ? 16 : tempFacesCapacity * 2;
+                    tempFaces = realloc(tempFaces, tempFacesCapacity * sizeof(Face));
+                }
+                tempFaces[tempFacesCount++] = face;
+            }
+            else {
+                vector_free(face.vertexIndices);
+            }
+        }
+    }
+
+    fclose(file);
+
+    for (size_t i = 0; i < tempPositionsCount; i++) {
+        Vertex vertex = { 0 };
+        vertex.position = tempPositions[i];
+
+        if (i < tempTexCoordsCount) {
+            vertex.texCoord = tempTexCoords[i];
+        }
+        else {
+            vertex.texCoord = (Vector2){ 0, 0 };
+        }
+
+        if (i < tempNormalsCount) {
+            vertex.normal = tempNormals[i];
+        }
+        else {
+            vertex.normal = (Vector3){ 0, 0, 0 };
+        }
+
+        vector_append(poly->vertices, vertex);
+    }
+
+    for (size_t i = 0; i < tempFacesCount; i++) {
+        Face newFace;
+        vector_init(newFace.vertexIndices);
+
+        for (size_t j = 0; j < tempFaces[i].vertexIndices.len; j++) {
+            vector_append(newFace.vertexIndices, tempFaces[i].vertexIndices.head[j]);
+        }
+
+        vector_append(poly->faces, newFace);
+    }
+
+    if (tempNormalsCount == 0) {
+        Polyhedron_calculateNormals(poly);
+    }
+
+    Polyhedron_updateCenter(poly);
+    poly->color = WHITE;
+
+    free(tempPositions);
+    free(tempNormals);
+    free(tempTexCoords);
+    for (size_t i = 0; i < tempFacesCount; i++) {
+        vector_free(tempFaces[i].vertexIndices);
+    }
+    free(tempFaces);
+
+    return (poly->vertices.len > 0 && poly->faces.len > 0);
+}
+
+bool Polyhedron_saveToObj(Polyhedron* poly, const char* filename) {
+    FILE* file = fopen(filename, "w");
+    if (!file) { return false; }
+
+    for (size_t i = 0; i < poly->vertices.len; i++) {
+        Vertex v = poly->vertices.head[i];
+        fprintf(file, "v %.6f %.6f %.6f\n", v.position.x, v.position.y, v.position.z);
+    }
+
+    for (size_t i = 0; i < poly->vertices.len; i++) {
+        Vertex v = poly->vertices.head[i];
+        fprintf(file, "vn %.6f %.6f %.6f\n", v.normal.x, v.normal.y, v.normal.z);
+    }
+
+    for (size_t i = 0; i < poly->vertices.len; i++) {
+        Vertex v = poly->vertices.head[i];
+        fprintf(file, "vt %.6f %.6f\n", v.texCoord.x, v.texCoord.y);
+    }
+
+    for (size_t i = 0; i < poly->faces.len; i++) {
+        Face face = poly->faces.head[i];
+        fprintf(file, "f");
+
+        for (size_t j = 0; j < face.vertexIndices.len; j++) {
+            int idx = face.vertexIndices.head[j] + 1;
+            fprintf(file, " %d/%d/%d", idx, idx, idx);
+        }
+        fprintf(file, "\n");
+    }
+
+    fclose(file);
+    return true;
+}

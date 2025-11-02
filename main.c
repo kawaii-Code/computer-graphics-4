@@ -56,6 +56,11 @@ int main(int argc, char **argv) {
 
     static bool isometric_mode = false;
 
+    static char loadFilePath[256] = "Mash/utah_teapot_lowpoly.obj";
+    static char saveFilePath[256] = "Mash/result.obj";
+    static bool editLoadFile = false;
+    static bool editSaveFile = false;
+
     while (!WindowShouldClose()) {
         Window_Info window = get_window_info();
         SetWindowTitle("Лаба 5");
@@ -131,6 +136,51 @@ int main(int argc, char **argv) {
 
         Rectangle arb_rotate_btn = {button_x, button_y+4*(button_height+button_spacing), button_width, button_height};
         if (Button(arb_rotate_btn, "Вращение по линии")) current_mode = MODE_ARBITRARY_ROT;
+
+        Rectangle load_panel = { button_x + 220, button_y, button_width, button_height };
+        DrawTextEx(fonts[FONT_MAIN], "Загрузка OBJ:", (Vector2) { load_panel.x + 5, load_panel.y + 5 }, 14, 0, BLACK);
+        Rectangle load_file_input = { load_panel.x + 10, load_panel.y + 25, load_panel.width - 20, 25 };
+        if (GuiTextBox(load_file_input, loadFilePath, 256, editLoadFile)) {
+            editLoadFile = !editLoadFile;
+        }
+        Rectangle load_btn = { load_panel.x + 10, load_panel.y + 55, load_panel.width - 20, 20 };
+        if (Button(load_btn, "Загрузить")) {
+            if (Polyhedron_loadFromObj(&current_poly, loadFilePath)) {
+                printf("Модель успешно загружена из %s\n", loadFilePath);
+                poly_initialized = true;
+
+                translation = (Vector3){ 0 };
+                scale = (Vector3){ 1, 1, 1 };
+                rotation_angles = (Vector3){ 0 };
+                reflection_plane = 0;
+                line_p1 = (Vector3){ 0 };
+                line_p2 = (Vector3){ 0 };
+                line_angle = 0;
+            }
+            else {
+                printf("Ошибка загрузки модели из %s\n", loadFilePath);
+                poly_initialized = false;
+            }
+        }
+
+        Rectangle save_panel = { button_x + 220, button_y + (button_height + button_spacing) + 30, button_width,  button_height };
+
+        DrawTextEx(fonts[FONT_MAIN], "Сохранение OBJ:", (Vector2) { save_panel.x + 5, save_panel.y + 5 }, 14, 0, BLACK);
+
+        Rectangle save_file_input = { save_panel.x + 10, save_panel.y + 25, save_panel.width - 20, 25 };
+        if (GuiTextBox(save_file_input, saveFilePath, 256, editSaveFile)) {
+            editSaveFile = !editSaveFile;
+        }
+
+        Rectangle save_btn = { save_panel.x + 10, save_panel.y + 55, save_panel.width - 20, 20 };
+        if (Button(save_btn, "Сохранить")) {
+            if (Polyhedron_saveToObj(&current_poly, saveFilePath)) {
+                printf("Модель успешно сохранена в %s\n", saveFilePath);
+            }
+            else {
+                printf("Ошибка сохранения модели в %s\n", saveFilePath);
+            }
+        }
 
         Rectangle reset_btn = { button_x, button_y + 5 * (button_height + button_spacing), button_width, button_height };
         if (Button(reset_btn, "Сбросить всё")) {

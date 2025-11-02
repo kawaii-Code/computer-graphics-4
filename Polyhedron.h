@@ -61,4 +61,7 @@ void Polyhedron_createDodecahedron(Polyhedron* poly);
 
 void Polyhedron_draw(Polyhedron* poly, Matrix transform);
 
+bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename);
+bool Polyhedron_saveToObj(Polyhedron* poly, const char* filename);
+
 #endif
