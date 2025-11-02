@@ -336,7 +336,7 @@ Matrix CreateRotationAroundLine(Vector3 p1, Vector3 p2, float angle) {
     return MatrixMultiply(MatrixMultiply(T2,R),T1);
 }
 
-Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, float rotation_angles[3], Vector3 scale, char reflection_plane, Vector3 line_p1, Vector3 line_p2, float line_angle) {
+Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, Vector3 rotation_angles, Vector3 scale, char reflection_plane, Vector3 line_p1, Vector3 line_p2, float line_angle) {
     Matrix transform = MatrixIdentity();
 
     if (reflection_plane != 0) {
@@ -349,9 +349,9 @@ Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, float rotati
     Matrix scaleM = CreateScaleMatrix(scale);
     transform = MatrixMultiply(transform, MatrixMultiply(MatrixMultiply(toOrigin, scaleM), fromOrigin));
 
-    transform = MatrixMultiply(transform, CreateRotationX(rotation_angles[0]*DEG2RAD));
-    transform = MatrixMultiply(transform, CreateRotationY(rotation_angles[1]*DEG2RAD));
-    transform = MatrixMultiply(transform, CreateRotationZ(rotation_angles[2]*DEG2RAD));
+    transform = MatrixMultiply(transform, CreateRotationX(rotation_angles.x*DEG2RAD));
+    transform = MatrixMultiply(transform, CreateRotationY(rotation_angles.y*DEG2RAD));
+    transform = MatrixMultiply(transform, CreateRotationZ(rotation_angles.z*DEG2RAD));
 
     if (!Vector3Equals(line_p1,line_p2)) transform = MatrixMultiply(transform, CreateRotationAroundLine(line_p1,line_p2,line_angle));
 

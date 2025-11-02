@@ -13,9 +13,6 @@ int selected_polygon = 0;
 bool show_dropdown = false;
 
 Vector3 translation = { 0 };
-Vector3 rotation_axis = { 0, 1, 0 };
-
-float rotation_angle = 0;
 Vector3 scale = { 1, 1, 1 };
 
 char reflection_plane = 0; // 'X', 'Y', 'Z', или 0
@@ -77,19 +74,14 @@ int main(int argc, char **argv) {
         static int translate_axis = 0;
         static int rotate_axis = 1;
 
-        static float temp_translation[3] = { 0 };
-        static float temp_rotation_angle = 0;
         static float temp_scale[3] = { 1, 1, 1 };
-        static float rotation_angles[3] = { 0, 0, 0 };
+        static Vector3 rotation_angles = { 0 };
 
         static char temp_reflection_plane = 0;
         static Vector3 temp_line_p1 = {0};
         static Vector3 temp_line_p2 = {0};
         static float temp_line_angle = 0;
 
-        temp_translation[0] = translation.x;
-        temp_translation[1] = translation.y;
-        temp_translation[2] = translation.z;
         temp_scale[0] = scale.x;
         temp_scale[1] = scale.y;
         temp_scale[2] = scale.z;
@@ -143,20 +135,15 @@ int main(int argc, char **argv) {
         Rectangle reset_btn = { button_x, button_y + 5 * (button_height + button_spacing), button_width, button_height };
         if (Button(reset_btn, "Сбросить всё")) {
             translation = (Vector3){ 0 };
-            rotation_angle = 0;
-            rotation_axis = (Vector3){ 0, 1, 0 };
             scale = (Vector3){ 1, 1, 1 };
             current_mode = MODE_NONE;
-            temp_translation[0] = temp_translation[1] = temp_translation[2] = 0;
-            temp_rotation_angle = 0;
             temp_scale[0] = temp_scale[1] = temp_scale[2] = 1;
-            rotation_angles[0] = rotation_angles[1] = rotation_angles[2] = 0;
+            rotation_angles.x = rotation_angles.y = rotation_angles.z = 0;
             reflection_plane = 0;
             line_p1 = (Vector3){0};
             line_p2 = (Vector3){0};
             line_angle = 0;
             current_mode = MODE_NONE;
-            rotation_angles[0] = rotation_angles[1] = rotation_angles[2] = 0;
         }
 
         Rectangle iso_btn = { button_x, button_y + 6 * (button_height + button_spacing), button_width, button_height };
@@ -200,13 +187,16 @@ int main(int argc, char **argv) {
 
             param_y += 40;
 
-            DrawTextEx(fonts[FONT_MAIN], "Смещение по оси:",(Vector2) {.x = panel_x + 10, .y = param_y},16, 0, BLACK);
-            GuiSliderBar((Rectangle) { panel_x + 40, param_y + 25, 120, 20 }, "-20", "20", & temp_translation[translate_axis], -20.0f, 20.0f);
-
-            translation.x = temp_translation[0];
-            translation.y = temp_translation[1];
-            translation.z = temp_translation[2];
-            param_y += 50;
+            DrawTextEx(fonts[FONT_MAIN], "Смещение по оси:", (Vector2) { .x = panel_x + 10, .y = param_y }, 16, 0, BLACK);
+            if (translate_axis == 0) {
+                GuiSliderBar((Rectangle) { panel_x + 40, param_y + 25, 120, 20 }, "-20", "20", & translation.x, -20.0f, 20.0f);
+            }
+            else if (translate_axis == 1) {
+                GuiSliderBar((Rectangle) { panel_x + 40, param_y + 25, 120, 20 }, "-20", "20", & translation.y, -20.0f, 20.0f);
+            }
+            else if (translate_axis == 2) { 
+                GuiSliderBar((Rectangle) { panel_x + 40, param_y + 25, 120, 20 }, "-20", "20", & translation.z, -20.0f, 20.0f);
+            }
         } break;
 
         case MODE_ROTATE: {
@@ -217,18 +207,25 @@ int main(int argc, char **argv) {
             Rectangle axis_y_btn = { panel_x + 90, param_y, 60, 25 };
             Rectangle axis_z_btn = { panel_x + 160, param_y, 60, 25 };
 
-            if (Button(axis_x_btn, "X")) { rotate_axis = 0; rotation_axis = (Vector3){ 1,0,0 }; }
-            if (Button(axis_y_btn, "Y")) { rotate_axis = 1; rotation_axis = (Vector3){ 0,1,0 }; }
-            if (Button(axis_z_btn, "Z")) { rotate_axis = 2; rotation_axis = (Vector3){ 0,0,1 }; }
+            if (Button(axis_x_btn, "X")) { rotate_axis = 0;}
+            if (Button(axis_y_btn, "Y")) { rotate_axis = 1;}
+            if (Button(axis_z_btn, "Z")) { rotate_axis = 2;}
 
             param_y += 40;
 
             DrawTextEx(fonts[FONT_MAIN], "Угол поворота:",(Vector2) {.x = panel_x + 10, .y = param_y},16, 0, BLACK);
             param_y += 25;
 
-            GuiSliderBar((Rectangle) { panel_x + 20, param_y, 150, 20 }, "0", "360", & rotation_angles[rotate_axis], 0.0f, 360.0f);
-            temp_rotation_angle = rotation_angles[rotate_axis];
-            rotation_angle = temp_rotation_angle * DEG2RAD;
+            if (rotate_axis == 0) {
+                GuiSliderBar((Rectangle) { panel_x + 20, param_y, 150, 20 }, "0", "360", & rotation_angles.x, 0.0f, 360.0f);
+            }
+            else if (rotate_axis == 1) {
+                GuiSliderBar((Rectangle) { panel_x + 20, param_y, 150, 20 }, "0", "360", & rotation_angles.y, 0.0f, 360.0f);
+            }
+            else if (rotate_axis == 2) {
+                GuiSliderBar((Rectangle) { panel_x + 20, param_y, 150, 20 }, "0", "360", & rotation_angles.z, 0.0f, 360.0f);
+            }
+            
         } break;
 
         case MODE_SCALE: {
@@ -436,9 +433,4 @@ void change_polyhedron(int new_selection) {
     }
 
     poly_initialized = true;
-
-    translation = (Vector3){ 0 };
-    rotation_angle = 0;
-    rotation_axis = (Vector3){ 0, 1, 0 };
-    scale = (Vector3){ 1, 1, 1 };
 }

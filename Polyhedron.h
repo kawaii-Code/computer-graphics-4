@@ -35,7 +35,7 @@ Matrix CreateRotationX(float angle);
 Matrix CreateRotationY(float angle);
 Matrix CreateRotationZ(float angle);
 Matrix CreateScaleMatrix(Vector3 scale);
-Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, float rotation_angles[3], Vector3 scale, char reflection_plane, Vector3 line_p1, Vector3 line_p2, float line_angle);
+Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, Vector3 rotation_angles, Vector3 scale, char reflection_plane, Vector3 line_p1, Vector3 line_p2, float line_angle);
 Matrix CreateReflectionMatrix(char plane);
 
 typedef enum {
