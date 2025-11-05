@@ -23,6 +23,9 @@ typedef struct {
     float x1, x2, y1, y2, z1, z2;
     float number_of_rotations;
     int axis;
+
+    int      points_count;
+    Vector3  points[128];
 } My_Epic_Tasks_Info;
 
 Font fonts[FONT_COUNT];
@@ -128,6 +131,9 @@ int main(int argc, char **argv) {
     Polyhedron* tetra = Polyhedron_createTetrahedron();
     Polyhedron* hexa = Polyhedron_createHexahedron();
     Polyhedron* ico = Polyhedron_createIcosahedron();
+    epic_data.points_count = 2;//ico->vertices.len;
+    epic_data.points[0] = (Vector3) { 1, 1, 0 };
+    epic_data.points[1] = (Vector3) { -1, 1, 0 };
     Polyhedron* dodeca = Polyhedron_createDodecahedron();
     Polyhedron* octa = Polyhedron_createOctahedron();
     objs[0] = scene_obj_create(tetra, 0, 1, (Vector3) {0, 0, 0}, (Vector3) {0, 0, 0}, (Vector3) {1, 1, 1});
@@ -266,11 +272,13 @@ int main(int argc, char **argv) {
 
             Polyhedron *p = Polyhedron_create();
             p->color = YELLOW;
-            Vector3 points[2] = {
-                {epic_data.x1, epic_data.y1, epic_data.z1},
-                {epic_data.x2, epic_data.y2, epic_data.z2},
-            };
-            int points_count = 2;
+
+            int points_count = epic_data.points_count;
+            Vector3 *points = calloc(1, points_count * sizeof *points);
+            for (int i = 0; i < points_count; i++) {
+                points[i] = epic_data.points[i];
+            }
+
             int number_of_rotations = (int)epic_data.number_of_rotations;
             Vector3 line;
             if (epic_data.axis == 0) {
@@ -284,8 +292,8 @@ int main(int argc, char **argv) {
             float angle = (2 * PI) / (float)number_of_rotations;
             float current_angle = angle;
             int max_index = 0;
-            int indices_len = ARRAY_LEN(points) * 2;
-            int indices[ARRAY_LEN(points) * 2] = {0};
+            int indices_len = points_count * 2;
+            int *indices = calloc(1, sizeof(int) * indices_len);
             for (int j = 0; j < points_count; j++) {
                 Polyhedron_addVertex(p, points[j]);
             }
@@ -312,6 +320,16 @@ int main(int argc, char **argv) {
                 indices[points_count + i] = points_count - i - 1;
             }
             Polyhedron_addFace(p, indices, indices_len);
+
+            int *top_indices = calloc(1, number_of_rotations * sizeof *indices);
+            for (int i = 0; i < number_of_rotations; i++) {
+                top_indices[i] = i * points_count;
+            }
+            Polyhedron_addFace(p, top_indices, number_of_rotations);
+            for (int i = 0; i < number_of_rotations; i++) {
+                top_indices[i] = (points_count - 1) + i * points_count;
+            }
+            Polyhedron_addFace(p, top_indices, number_of_rotations);
 
             objs[selected]->visible = false;
             *objs[5] = *scene_obj_create(p, 0, 1, (Vector3) {0, 0, 0}, (Vector3) {0, 0, 0}, (Vector3) {1, 1, 1});
@@ -812,48 +830,36 @@ void draw_epic_ui_for_my_EPIC_tasks(My_Epic_Tasks_Info *epic_data) {
             .height = button_height,
         };
 
-        DrawTextEx(fonts[FONT_MAIN],"X1", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
-        slider.y += 20;
-        if (GuiSliderBar(slider, "-10", "10", &epic_data->x1, -10.0f, 10.0f)) {
-            epic_data->do_epic_rotate_task = true;
+        if (Button(slider, "Добавить Точку")) {
+            epic_data->points_count += 1;
+        }
+        slider.y += slider.height + 10;
+        if (epic_data->points_count > 0 && Button(slider, "Удалить Точку")) {
+            epic_data->points_count -= 1;
+        }
+        slider.y += slider.height + 10;
+
+        for (int i = 0; i < epic_data->points_count; i++) {
+            DrawTextEx(fonts[FONT_MAIN], TextFormat("Точка №%d", i + 1), (Vector2) {slider.x, slider.y}, 16, 0, BLACK);
+            slider.y += 20;
+            Rectangle rec = slider;
+            rec.x = button_x;
+            rec.width /= 3;
+            rec.height *= 0.75f;
+            if (GuiSliderBar(rec, "-1", "1", &epic_data->points[i].x, -1.0f, 1.0f)) {
+                epic_data->do_epic_rotate_task = true;
+            }
+            rec.x += rec.width + 20;
+            if (GuiSliderBar(rec, "-1", "1", &epic_data->points[i].y, -1.0f, 1.0f)) {
+                epic_data->do_epic_rotate_task = true;
+            }
+            rec.x += rec.width + 20;
+            if (GuiSliderBar(rec, "-1", "1", &epic_data->points[i].z, -1.0f, 1.0f)) {
+                epic_data->do_epic_rotate_task = true;
+            }
+            slider.y += rec.height + 5;
         }
 
-        slider.y += button_height;
-        DrawTextEx(fonts[FONT_MAIN],"Y1", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
-        slider.y += 20;
-        if (GuiSliderBar(slider, "-10", "10", &epic_data->y1, -10.0f, 10.0f)) {
-            epic_data->do_epic_rotate_task = true;
-        }
-
-        slider.y += button_height;
-        DrawTextEx(fonts[FONT_MAIN],"Z1", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
-        slider.y += 20;
-        if (GuiSliderBar(slider, "-10", "10", &epic_data->z1, -10.0f, 10.0f)) {
-            epic_data->do_epic_rotate_task = true;
-        }
-
-        slider.y += button_height;
-        DrawTextEx(fonts[FONT_MAIN],"X2", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
-        slider.y += 20;
-        if (GuiSliderBar(slider, "-10", "10", &epic_data->x2, -10.0f, 10.0f)) {
-            epic_data->do_epic_rotate_task = true;
-        }
-
-        slider.y += button_height;
-        DrawTextEx(fonts[FONT_MAIN],"Y2", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
-        slider.y += 20;
-        if (GuiSliderBar(slider, "-10", "10", &epic_data->y2, -10.0f, 10.0f)) {
-            epic_data->do_epic_rotate_task = true;
-        }
-
-        slider.y += button_height;
-        DrawTextEx(fonts[FONT_MAIN],"Z2", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
-        slider.y += 20;
-        if (GuiSliderBar(slider, "-10", "10", &epic_data->z2, -10.0f, 10.0f)) {
-            epic_data->do_epic_rotate_task = true;
-        }
-
-        slider.y += button_height;
         DrawTextEx(fonts[FONT_MAIN],"Количество разбиений", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
         slider.y += 20;
         if (GuiSliderBar(slider, "1", "360", &epic_data->number_of_rotations, 1.0f, 360.0f)) {
