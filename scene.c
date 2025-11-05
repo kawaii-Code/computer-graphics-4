@@ -30,7 +30,7 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             continue;
         }
 
-        Vector2 screenVerts[indices.len];
+        Vector2 *screenVerts = calloc(1, sizeof(Vector2) * indices.len);
         for (size_t v = 0; v < indices.len; v++) {
             Vector3 worldVert = worldVerts->head[indices.head[v]];
             screenVerts[v] = cameraz_world_to_screen(worldVert, scene->camera);
