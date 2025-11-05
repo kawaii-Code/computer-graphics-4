@@ -13,7 +13,6 @@ typedef struct {
 
      size_t render_layer;
      bool visible;
-
      Vector3 position;
      Vector3 rotation;
      Vector3 scale;

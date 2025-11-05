@@ -5,7 +5,7 @@ void scene_obj_free(SceneObject* obj) {
 }
 
 SceneObject* scene_obj_create(Polyhedron* mesh, size_t render_layer, bool visible, Vector3 position, Vector3 rotation, Vector3 scale) {
-    SceneObject* scene = malloc(sizeof(SceneObject));
+    SceneObject* scene = calloc(1, sizeof(SceneObject));
     scene->mesh = mesh;
     scene->render_layer = render_layer;
     scene->visible = visible;
@@ -26,7 +26,9 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
         Face face = obj->mesh->faces.head[f];
         VECTOR_TYPE(int) indices = face.vertexIndices;
 
-        if (indices.len < 3) continue;
+        if (indices.len < 3) {
+            continue;
+        }
 
         Vector2 screenVerts[indices.len];
         for (size_t v = 0; v < indices.len; v++) {
@@ -34,6 +36,7 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             screenVerts[v] = cameraz_world_to_screen(worldVert, scene->camera);
         }
 
+        DrawTriangleFan(screenVerts, indices.len, obj->mesh->color);
         for (int j = 1; j < indices.len - 1; j++) {
             DrawTriangle(screenVerts[0], screenVerts[j], screenVerts[j + 1], obj->mesh->color);
         }
@@ -58,7 +61,7 @@ void scene_free(Scene* scene) {
 }
 
 Scene* scene_create(CameraZ* camera) {
-    Scene* scene = malloc(sizeof(Scene));
+    Scene* scene = calloc(1, sizeof(Scene));
     scene->camera = camera;
 
     return scene;

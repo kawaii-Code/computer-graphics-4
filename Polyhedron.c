@@ -1,13 +1,10 @@
-﻿#include "polyhedron.h"
-
-static VECTOR_TYPE(Vector3) originalPositions;
+﻿#include "Polyhedron.h"
 
 void Polyhedron_init(Polyhedron* poly) {
     vector_init(poly->vertices);
     vector_init(poly->faces);
     poly->color = WHITE;
     poly->center = (Vector3){ 0, 0, 0 };
-    vector_init(originalPositions);
 }
 
 void Polyhedron_free(Polyhedron* poly) {
@@ -16,10 +13,6 @@ void Polyhedron_free(Polyhedron* poly) {
     }
     vector_free(poly->faces);
     vector_free(poly->vertices);
-}
-
-void free_positions() {
-    vector_free(originalPositions);
 }
 
 void Polyhedron_addVertex(Polyhedron* poly, Vector3 position) {
@@ -33,7 +26,6 @@ void Polyhedron_addVertexEx(Polyhedron* poly, Vector3 position, Vector3 normal, 
         .texCoord = texCoord
     };
     vector_append(poly->vertices, v);
-    vector_append(originalPositions, position);
 }
 
 void Polyhedron_addFace(Polyhedron* poly, int* indices, int count) {
@@ -59,7 +51,7 @@ void Polyhedron_updateCenter(Polyhedron* poly) {
 }
 
 Polyhedron* Polyhedron_create() {
-    Polyhedron* poly = malloc(sizeof(Polyhedron));
+    Polyhedron* poly = calloc(1, sizeof(Polyhedron));
     poly->vertices.head = 0;
     poly->vertices.len = 0;
     poly->vertices.cap = 0;
@@ -603,7 +595,6 @@ bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename) {
         Polyhedron_calculateNormals(poly);
     }
 
-    Polyhedron_updateCenter(poly);
     poly->color = WHITE;
 
     free(tempPositions);

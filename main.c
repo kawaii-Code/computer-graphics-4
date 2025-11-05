@@ -7,8 +7,27 @@
 #define RAYGUI_IMPLEMENTATION
 #include "third_party/include/raygui.h"
 
+// Свалка лично моя! Не трогать! 🦝
+typedef struct {
+    bool do_epic_function_task;
+    bool do_epic_rotate_task;
+    bool hide;
+    int mode;
+
+    float min_x;
+    float max_x;
+    float min_z;
+    float max_z;
+    int function;
+
+    float x1, x2, y1, y2, z1, z2;
+    float number_of_rotations;
+    int axis;
+} My_Epic_Tasks_Info;
+
 Font fonts[FONT_COUNT];
 
+void draw_epic_ui_for_my_EPIC_tasks(My_Epic_Tasks_Info *epic_data);
 void change_polyhedron(int new_selection);
 
 int selected_polygon = 0;
@@ -30,7 +49,7 @@ const char* polyhedron_names[] = {
     "Додекаэдр",
     "Свой"
 };
-const int polyhedron_count = 6;
+#define polyhedron_count 6
 
 SceneObject* objs[polyhedron_count];
 int prev_obj = 0;
@@ -46,6 +65,42 @@ bool update_camera = true;
 
 Polyhedron* current_poly;
 
+Matrix CreateRotationAroundLine(Vector3 p1, Vector3 p2, float angle);
+
+float function5(float x, float y) {
+    float r = x * x + y * y + 1;
+    return 5 * (cos(r) / r + 0.1f);
+}
+
+float function4(float x, float y) {
+    return cos(x) * cos(x) - sin(y) * sin(y);
+}
+
+float function3(float x, float y) {
+    return atan2(y, x);
+}
+
+float function2(float x, float y) {
+    return 1.0f;
+}
+
+float function1(float x, float y) {
+    return x + y;
+}
+
+float function0(float x, float y) {
+    return cosf(PI * x) * cosf(PI * y);
+}
+
+float (*funcs[])(float x, float y) = {
+    function0,
+    function1,
+    function2,
+    function3,
+    function4,
+    function5,
+};
+
 int main(int argc, char **argv) {
     init();
     SetWindowSize(menu_window_width, menu_window_height);
@@ -56,6 +111,19 @@ int main(int argc, char **argv) {
         (Vector3) {0, 1, 0},
         45, 1, 1, 0.1, 1000, menu_window_width, menu_window_height, PERSPECTIVE_TYPE);
     Scene* scene = scene_create(camera);
+
+    My_Epic_Tasks_Info epic_data = {0};
+    epic_data.min_x = -5;
+    epic_data.max_x = 5;
+    epic_data.min_z = -5;
+    epic_data.max_z = 5;
+    epic_data.axis = 0;
+    epic_data.y1 = 1;
+    epic_data.y2 = 1;
+    epic_data.x1 = -1;
+    epic_data.x2 = 1;
+    epic_data.number_of_rotations = 12;
+    epic_data.hide = true;
 
     Polyhedron* tetra = Polyhedron_createTetrahedron();
     Polyhedron* hexa = Polyhedron_createHexahedron();
@@ -191,6 +259,115 @@ int main(int argc, char **argv) {
         if (IsKeyDown(KEY_X)) {
             camera->zoom = fmaxf(0.3, camera->zoom / 1.02f);
             update_camera = true;
+        }
+
+        if (epic_data.do_epic_rotate_task) {
+            epic_data.do_epic_rotate_task = false;
+
+            Polyhedron *p = Polyhedron_create();
+            p->color = YELLOW;
+            Vector3 points[2] = {
+                {epic_data.x1, epic_data.y1, epic_data.z1},
+                {epic_data.x2, epic_data.y2, epic_data.z2},
+            };
+            int points_count = 2;
+            int number_of_rotations = (int)epic_data.number_of_rotations;
+            Vector3 line;
+            if (epic_data.axis == 0) {
+                line = (Vector3) { 1, 0, 0 };
+            } else if (epic_data.axis == 1) {
+                line = (Vector3) { 0, 1, 0 };
+            } else if (epic_data.axis == 2) {
+                line = (Vector3) { 0, 0, 1 };
+            }
+
+            float angle = (2 * PI) / (float)number_of_rotations;
+            float current_angle = angle;
+            int max_index = 0;
+            int indices_len = ARRAY_LEN(points) * 2;
+            int indices[ARRAY_LEN(points) * 2] = {0};
+            for (int j = 0; j < points_count; j++) {
+                Polyhedron_addVertex(p, points[j]);
+            }
+            for (int i = 1; i < number_of_rotations; i++) {
+                for (int j = 0; j < points_count; j++) {
+                    Matrix transform = CreateRotationAroundLine((Vector3){0, 0, 0}, line, current_angle);
+                    Vector3 v = Vector3Transform(points[j], transform);
+                    Polyhedron_addVertex(p, v);
+                }
+                for (int i = 0; i < points_count; i++) {
+                    indices[i] = max_index + i;
+                }
+                for (int i = 0; i < points_count; i++) {
+                    indices[points_count + i] = max_index + indices_len - i - 1;
+                }
+                Polyhedron_addFace(p, indices, indices_len);
+                max_index += points_count;
+                current_angle += angle;
+            }
+            for (int i = 0; i < points_count; i++) {
+                indices[i] = max_index + i;
+            }
+            for (int i = 0; i < points_count; i++) {
+                indices[points_count + i] = points_count - i - 1;
+            }
+            Polyhedron_addFace(p, indices, indices_len);
+
+            objs[selected]->visible = false;
+            *objs[5] = *scene_obj_create(p, 0, 1, (Vector3) {0, 0, 0}, (Vector3) {0, 0, 0}, (Vector3) {1, 1, 1});
+            selected = 5;
+            current_poly = p;
+        }
+
+        if (epic_data.do_epic_function_task) {
+            epic_data.do_epic_function_task = false;
+
+            Polyhedron *p = Polyhedron_create();
+            p->color = YELLOW;
+
+            int min_x = epic_data.min_x;
+            int max_x = epic_data.max_x;
+            int min_y = epic_data.min_z;
+            int max_y = epic_data.max_z;
+
+            int indices[4] = {0};
+
+            int max_index = 0;
+            float step = 0.25f;
+            float x = min_x;
+            float y = min_y;
+            while (y <= max_y) {
+                float (*f)(float x, float y) = funcs[epic_data.function];
+
+                float tx = x;
+                float ty = y;
+                Polyhedron_addVertex(p, (Vector3) { .x = tx, .y = f(tx, ty), .z = ty });
+                tx += step;
+                Polyhedron_addVertex(p, (Vector3) { .x = tx, .y = f(tx, ty), .z = ty });
+                tx = x;
+                ty += step;
+                Polyhedron_addVertex(p, (Vector3) { .x = tx, .y = f(tx, ty), .z = ty });
+                tx += step;
+                Polyhedron_addVertex(p, (Vector3) { .x = tx, .y = f(tx, ty), .z = ty });
+
+                indices[0] = max_index + 0;
+                indices[1] = max_index + 1;
+                indices[2] = max_index + 3;
+                indices[3] = max_index + 2;
+                max_index += 4;
+                Polyhedron_addFace(p, indices, 4);
+
+                x += step;
+                if (x > max_x) {
+                    x = min_x;
+                    y += step;
+                }
+            }
+
+            objs[selected]->visible = false;
+            *objs[5] = *scene_obj_create(p, 0, 1, (Vector3) {0, 0, 0}, (Vector3) {0, 0, 0}, (Vector3) {1, 1, 1});
+            selected = 5;
+            current_poly = p;
         }
 
         // Обработка переключения проекций
@@ -425,6 +602,10 @@ int main(int argc, char **argv) {
                    reflection_plane, v.x, v.y, v.z, v_after.x, v_after.y, v_after.z);
         }
 
+        for (int i = 0; i < 6; i++) {
+            objs[i]->visible = false;
+        }
+        objs[selected]->visible = true;
         objs[selected]->position = user_translation;
         objs[selected]->rotation = (Vector3){user_rotation.x, user_rotation.y, user_rotation.z};
         objs[selected]->scale = user_scale;
@@ -433,6 +614,12 @@ int main(int argc, char **argv) {
         objs[selected]->line_p2 = line_p2;
         objs[selected]->line_angle = line_angle * DEG2RAD;
         scene_draw(scene);
+
+        // ЗДЕСЬ Я НАРИСУЮ СВОЙ, ПО НАСТОЯЩЕМУ КРУТОЙ UI!
+        if (epic_data.hide && Button((Rectangle) { .x = window.width - 190, .y = 10, .width = 180, .height = 60 }, "Нажми Меня!")) {
+            epic_data.hide = false;
+        }
+        draw_epic_ui_for_my_EPIC_tasks(&epic_data);
 
         Vector2 p1 = cameraz_world_to_screen(line_p1, camera);
         Vector2 p2 = cameraz_world_to_screen(line_p2, camera);
@@ -445,7 +632,6 @@ int main(int argc, char **argv) {
     Polyhedron_free(octa);
     Polyhedron_free(ico);
     Polyhedron_free(dodeca);
-    free_positions();
 }
 
 void init() {
@@ -518,6 +704,183 @@ void DropdownMenu(Rectangle bounds, int* selectedOption, bool* showDropdown, int
     }
 }
 
+void draw_epic_ui_for_my_EPIC_tasks(My_Epic_Tasks_Info *epic_data) {
+    if (epic_data->hide) {
+        return;
+    }
+    Window_Info window = get_window_info();
+
+    int ui_area_width = 260;
+    Rectangle area = { .x = window.width - ui_area_width, .y = 0, .width = ui_area_width, .height = window.height };
+    DrawRectangleRec(area, WHITE);
+
+    int margin_left = 10;
+    int margin_right = margin_left;
+    int margin_top = 20;
+    int button_y_pad = 5;
+    int button_height = 30;
+
+    int all_buttons_x = area.x + margin_left;
+    int all_buttons_width = area.width - margin_left - margin_right;
+    float y = area.y + margin_top;
+    Rectangle function_button = {
+        .x = all_buttons_x,
+        .y = y,
+        .width = all_buttons_width,
+        .height = button_height,
+    };
+    y += button_height + button_y_pad;
+    Rectangle rotate_body_button = {
+        .x = all_buttons_x,
+        .y = y,
+        .width = all_buttons_width,
+        .height = button_height,
+    };
+    y += button_height + button_y_pad;
+    if (Button(function_button, "Создать функцию")) {
+        epic_data->do_epic_function_task = true;
+        epic_data->mode = 1;
+    }
+    if (Button(rotate_body_button, "Создать тело вращения")) {
+        epic_data->do_epic_rotate_task = true;
+        epic_data->mode = 2;
+    }
+
+    if (epic_data->mode == 1) {
+        //GuiSliderBar((Rectangle){panel_x+20,param_y,250,20},"0","360",&line_angle,0,360);
+
+        int button_x = area.x + margin_left;
+        int button_width = all_buttons_width;
+        Rectangle slider = {
+            .x = button_x + 20,
+            .y = y,
+            .width = button_width - 40,
+            .height = button_height,
+        };
+
+        DrawTextEx(fonts[FONT_MAIN],"Min_X", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "-10", "10", &epic_data->min_x, -10.0f, 10.0f)) {
+            epic_data->do_epic_function_task = true;
+        }
+
+        slider.y += button_height;
+        DrawTextEx(fonts[FONT_MAIN],"Max_X", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "-10", "10", &epic_data->max_x, -10.0f, 10.0f)) {
+            epic_data->do_epic_function_task = true;
+        }
+
+        slider.y += button_height;
+        DrawTextEx(fonts[FONT_MAIN],"Min_Z", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "-10", "10", &epic_data->min_z, -10.0f, 10.0f)) {
+            epic_data->do_epic_function_task = true;
+        }
+
+        slider.y += button_height;
+        DrawTextEx(fonts[FONT_MAIN],"Max_Z", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "-10", "10", &epic_data->max_z, -10.0f, 10.0f)) {
+            epic_data->do_epic_function_task = true;
+        }
+
+        slider.y += slider.height + 30;
+
+        const char *func_names[ARRAY_LEN(funcs)] = {
+            "f(x) = cos(x) + cos(y)",
+            "f(x) = x + y",
+            "f(x) = 1",
+            "f(x) = atan2(y, x)",
+            "f(x) = cos(x)^2 - sin(x)^2",
+            "TOP 1 f(x)",
+        };
+        for (int i = 0; i < ARRAY_LEN(funcs); i++) {
+            if (GuiButton(slider, func_names[i])) {
+                epic_data->function = i;
+                epic_data->do_epic_function_task = true;
+            }
+            slider.y += button_height + button_y_pad;
+        }
+    } else if (epic_data->mode == 2) {
+        int button_x = area.x + margin_left;
+        int button_width = all_buttons_width;
+        Rectangle slider = {
+            .x = button_x + 20,
+            .y = y,
+            .width = button_width - 40,
+            .height = button_height,
+        };
+
+        DrawTextEx(fonts[FONT_MAIN],"X1", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "-10", "10", &epic_data->x1, -10.0f, 10.0f)) {
+            epic_data->do_epic_rotate_task = true;
+        }
+
+        slider.y += button_height;
+        DrawTextEx(fonts[FONT_MAIN],"Y1", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "-10", "10", &epic_data->y1, -10.0f, 10.0f)) {
+            epic_data->do_epic_rotate_task = true;
+        }
+
+        slider.y += button_height;
+        DrawTextEx(fonts[FONT_MAIN],"Z1", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "-10", "10", &epic_data->z1, -10.0f, 10.0f)) {
+            epic_data->do_epic_rotate_task = true;
+        }
+
+        slider.y += button_height;
+        DrawTextEx(fonts[FONT_MAIN],"X2", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "-10", "10", &epic_data->x2, -10.0f, 10.0f)) {
+            epic_data->do_epic_rotate_task = true;
+        }
+
+        slider.y += button_height;
+        DrawTextEx(fonts[FONT_MAIN],"Y2", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "-10", "10", &epic_data->y2, -10.0f, 10.0f)) {
+            epic_data->do_epic_rotate_task = true;
+        }
+
+        slider.y += button_height;
+        DrawTextEx(fonts[FONT_MAIN],"Z2", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "-10", "10", &epic_data->z2, -10.0f, 10.0f)) {
+            epic_data->do_epic_rotate_task = true;
+        }
+
+        slider.y += button_height;
+        DrawTextEx(fonts[FONT_MAIN],"Количество разбиений", (Vector2){slider.x, slider.y}, 16, 0, BLACK);
+        slider.y += 20;
+        if (GuiSliderBar(slider, "1", "360", &epic_data->number_of_rotations, 1.0f, 360.0f)) {
+            epic_data->do_epic_rotate_task = true;
+        }
+
+
+        slider.y += slider.height + 30;
+
+        const char *names[] = {
+            "Ось X",
+            "Ось Y",
+            "Ось Z",
+        };
+        for (int i = 0; i < ARRAY_LEN(names); i++) {
+            if (Button(slider, names[i])) {
+                epic_data->axis = i;
+                epic_data->do_epic_rotate_task = true;
+            }
+            slider.y += button_height + button_y_pad;
+        }
+    }
+
+    if (Button((Rectangle) { .x = area.x + margin_left, .y = area.y + area.height - 100, .width = all_buttons_width, .height = 90 }, "Скрыть")) {
+        epic_data->hide = true;
+    }
+}
 
 void change_polyhedron(int new_selection) {
     objs[prev_obj]->visible = false;
