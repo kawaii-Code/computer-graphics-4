@@ -44,6 +44,10 @@ void Polyhedron_addVertexEx(Polyhedron* poly, Vector3 position, Vector3 normal, 
 void Polyhedron_addFace(Polyhedron* poly, int* indices, int count);
 void Polyhedron_updateCenter(Polyhedron* poly);
 
+Vector3 Face_calculateNormal(Polyhedron* poly, Face* face);
+void Polyhedron_calculateNormals(Polyhedron* poly);
+bool Face_isFrontFacing(Polyhedron* poly, Face* face, CameraZ* camera);
+
 Matrix CreateTranslationMatrix(Vector3 translation);
 Matrix CreateRotationX(float angle);
 Matrix CreateRotationY(float angle);
@@ -78,4 +82,5 @@ bool Polyhedron_saveToObj(Polyhedron* poly, const char* filename);
 float Polyhedron_bounding_radius(Polyhedron* poly);
 
 void free_positions();
+
 #endif

@@ -1,4 +1,5 @@
 ﻿#include "Polyhedron.h"
+#include "camera.h"
 
 void Polyhedron_init(Polyhedron* poly) {
     vector_init(poly->vertices);
@@ -65,6 +66,21 @@ Polyhedron* Polyhedron_create() {
     return poly;
 }
 
+Vector3 Face_calculateNormal(Polyhedron* poly, Face* face) {
+    if (face->vertexIndices.len < 3) {
+        return (Vector3) { 0, 0, 0 };
+    }
+
+    Vector3 v0 = poly->vertices.head[face->vertexIndices.head[0]].position;
+    Vector3 v1 = poly->vertices.head[face->vertexIndices.head[1]].position;
+    Vector3 v2 = poly->vertices.head[face->vertexIndices.head[2]].position;
+
+    Vector3 edge1 = Vector3Subtract(v1, v0);
+    Vector3 edge2 = Vector3Subtract(v2, v0);
+
+    return Vector3Normalize(Vector3CrossProduct(edge1, edge2));
+}
+
 void Polyhedron_calculateNormals(Polyhedron* poly) {
     for (size_t i = 0; i < poly->vertices.len; i++) {
         poly->vertices.head[i].normal = (Vector3){ 0, 0, 0 };
@@ -74,14 +90,7 @@ void Polyhedron_calculateNormals(Polyhedron* poly) {
         Face* face = &poly->faces.head[i];
 
         if (face->vertexIndices.len >= 3) {
-            Vector3 v0 = poly->vertices.head[face->vertexIndices.head[0]].position;
-            Vector3 v1 = poly->vertices.head[face->vertexIndices.head[1]].position;
-            Vector3 v2 = poly->vertices.head[face->vertexIndices.head[2]].position;
-
-            Vector3 edge1 = Vector3Subtract(v1, v0);
-            Vector3 edge2 = Vector3Subtract(v2, v0);
-
-            Vector3 faceNormal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
+            Vector3 faceNormal = Face_calculateNormal(poly, face);
 
             for (size_t j = 0; j < face->vertexIndices.len; j++) {
                 int vertexIndex = face->vertexIndices.head[j];
@@ -96,6 +105,25 @@ void Polyhedron_calculateNormals(Polyhedron* poly) {
     }
 }
 
+bool Face_isFrontFacing(Polyhedron* poly, Face* face, CameraZ* camera) {
+    Vector3 faceNormal = Face_calculateNormal(poly, face);
+
+    if (camera->projection_type == PERSPECTIVE_TYPE) {
+        Vector3 faceCenter = { 0, 0, 0 };
+        for (size_t i = 0; i < face->vertexIndices.len; i++) {
+            faceCenter = Vector3Add(faceCenter, poly->vertices.head[face->vertexIndices.head[i]].position);
+        }
+        faceCenter = Vector3Scale(faceCenter, 1.0f / face->vertexIndices.len);
+
+        Vector3 viewDirection = Vector3Normalize(Vector3Subtract(camera->position, faceCenter));
+        return Vector3DotProduct(faceNormal, viewDirection) > 0;
+    }
+    else {
+        Matrix viewMatrix = camera->view_matrix;
+        Vector3 transformedNormal = Vector3Transform(faceNormal, viewMatrix);
+        return transformedNormal.z < 0;
+    }
+}
 
 Polyhedron* Polyhedron_createTetrahedron() {
     Polyhedron* poly = Polyhedron_create();
@@ -134,12 +162,12 @@ Polyhedron* Polyhedron_createHexahedron() {
     Polyhedron_addVertex(poly, (Vector3) { -s, s, s });
 
     int faces[6][4] = {
-        {0, 1, 2, 3},
-        {4, 7, 6, 5},
-        {0, 4, 5, 1},
-        {3, 2, 6, 7},
-        {0, 3, 7, 4},
-        {1, 5, 6, 2}
+        {3, 2, 1, 0},
+        { 5, 6, 7, 4},
+        {1, 5, 4, 0},
+        {7, 6, 2, 3},
+        {4, 7, 3, 0},
+        {2, 6, 5, 1}
     };
 
     for (int i = 0; i < 6; i++) {

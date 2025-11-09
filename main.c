@@ -327,7 +327,7 @@ int main(int argc, char **argv) {
             }
             Polyhedron_addFace(p, top_indices, number_of_rotations);
             for (int i = 0; i < number_of_rotations; i++) {
-                top_indices[i] = (points_count - 1) + i * points_count;
+                top_indices[i] = (points_count - 1) + (number_of_rotations - 1 - i) * points_count;
             }
             Polyhedron_addFace(p, top_indices, number_of_rotations);
 

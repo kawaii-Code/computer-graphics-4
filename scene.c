@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "Polyhedron.h"
 
 void scene_obj_free(SceneObject* obj) {
     free(obj);
@@ -23,11 +24,15 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
     VECTOR_TYPE(Vector3)* worldVerts = Polyhedron_transform(obj->mesh, worldMatrix);
 
     for (size_t f = 0; f < obj->mesh->faces.len; f++) {
-        Face face = obj->mesh->faces.head[f];
-        VECTOR_TYPE(int) indices = face.vertexIndices;
+        Face* face = &obj->mesh->faces.head[f];
+        VECTOR_TYPE(int) indices = face->vertexIndices;
 
         if (indices.len < 3) {
             continue;
+        }
+
+        if (!Face_isFrontFacing(obj->mesh, face, scene->camera)) {
+            continue; 
         }
 
         Vector2 *screenVerts = calloc(1, sizeof(Vector2) * indices.len);
@@ -37,9 +42,6 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
         }
 
         DrawTriangleFan(screenVerts, indices.len, obj->mesh->color);
-        for (int j = 1; j < indices.len - 1; j++) {
-            DrawTriangle(screenVerts[0], screenVerts[j], screenVerts[j + 1], obj->mesh->color);
-        }
 
         for (size_t v = 0; v < indices.len; v++) {
             int next = (v + 1) % indices.len;
