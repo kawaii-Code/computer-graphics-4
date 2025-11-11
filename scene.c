@@ -32,7 +32,7 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
         }
 
      
-        if (!Face_isFrontFacing(worldMatrix, obj->mesh, face, scene->camera)) {
+        if (!Face_isFrontFacing(obj->mesh, face, scene->camera, worldMatrix)) {
             continue; 
         }
 
@@ -58,13 +58,23 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             continue;
         }
 
-        Vector3 faceCenter = Face_getCenter(obj->mesh, face);
+        /*Vector3 faceCenter = Face_getCenter(obj->mesh, face);
         faceCenter = Vector3Transform(faceCenter, worldMatrix);
         Vector3 faceNormal = Face_calculateNormal(obj->mesh, face);
         Vector3 normalEnd = Vector3Add(faceCenter, faceNormal);
         Vector2 faceScreen = cameraz_world_to_screen(faceCenter, scene->camera);
         Vector2 normalScreen = cameraz_world_to_screen(normalEnd, scene->camera);
-        DrawLineV(faceScreen, normalScreen, BLUE);
+        DrawLineV(faceScreen, normalScreen, BLUE);*/
+        
+        Vector3 worldNormal = Face_calculateNormal_World(obj->mesh, face, worldMatrix);
+        Vector3 faceCenter = Face_getCenter_World(obj->mesh, face, worldMatrix);
+
+        Vector3 normalEnd = Vector3Add(faceCenter, Vector3Scale(worldNormal, 0.5f));
+        Vector2 faceScreen = cameraz_world_to_screen(faceCenter, scene->camera);
+        Vector2 normalScreen = cameraz_world_to_screen(normalEnd, scene->camera);
+
+        bool isVisible = Face_isFrontFacing(obj->mesh, face, scene->camera,worldMatrix);
+        DrawLineV(faceScreen, normalScreen, isVisible ? GREEN : RED);
     }
 
     vector_free(*worldVerts);
