@@ -105,18 +105,29 @@ void Polyhedron_calculateNormals(Polyhedron* poly) {
     }
 }
 
-bool Face_isFrontFacing(Polyhedron* poly, Face* face, CameraZ* camera) {
+Vector3 Face_getCenter(Polyhedron* poly, Face* face) {
+    Vector3 faceCenter = { 0, 0, 0 };
+    for (size_t i = 0; i < face->vertexIndices.len; i++) {
+        faceCenter = Vector3Add(faceCenter, poly->vertices.head[face->vertexIndices.head[i]].position);
+    }
+    faceCenter = Vector3Scale(faceCenter, 1.0f / face->vertexIndices.len);
+    return faceCenter;
+}
+
+bool Face_isFrontFacing(Matrix world, Polyhedron* poly, Face* face, CameraZ* camera) {
     Vector3 faceNormal = Face_calculateNormal(poly, face);
 
     if (camera->projection_type == PERSPECTIVE_TYPE) {
-        Vector3 faceCenter = { 0, 0, 0 };
-        for (size_t i = 0; i < face->vertexIndices.len; i++) {
-            faceCenter = Vector3Add(faceCenter, poly->vertices.head[face->vertexIndices.head[i]].position);
-        }
-        faceCenter = Vector3Scale(faceCenter, 1.0f / face->vertexIndices.len);
+        Vector3 faceCenter = Face_getCenter(poly, face);
+        Vector3 faceSkipNormal = Vector3Add(faceCenter, faceNormal);
+
+        faceCenter = Vector3Transform(faceCenter, world);
+        faceSkipNormal = Vector3Transform(faceSkipNormal, world);
+
+        Vector3 worldNormal = Vector3Subtract(faceSkipNormal, faceCenter);
 
         Vector3 viewDirection = Vector3Normalize(Vector3Subtract(camera->position, faceCenter));
-        return Vector3DotProduct(faceNormal, viewDirection) > 0;
+        return Vector3DotProduct(worldNormal, viewDirection) > 0;
     }
     else {
         Matrix viewMatrix = camera->view_matrix;

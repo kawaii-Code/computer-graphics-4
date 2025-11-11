@@ -31,7 +31,8 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             continue;
         }
 
-        if (!Face_isFrontFacing(obj->mesh, face, scene->camera)) {
+     
+        if (!Face_isFrontFacing(worldMatrix, obj->mesh, face, scene->camera)) {
             continue; 
         }
 
@@ -47,6 +48,23 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             int next = (v + 1) % indices.len;
             DrawLineV(screenVerts[v], screenVerts[next], BLACK);
         }
+    }
+
+    for (size_t f = 0; f < obj->mesh->faces.len; f++) {
+        Face* face = &obj->mesh->faces.head[f];
+        VECTOR_TYPE(int) indices = face->vertexIndices;
+
+        if (indices.len < 3) {
+            continue;
+        }
+
+        Vector3 faceCenter = Face_getCenter(obj->mesh, face);
+        faceCenter = Vector3Transform(faceCenter, worldMatrix);
+        Vector3 faceNormal = Face_calculateNormal(obj->mesh, face);
+        Vector3 normalEnd = Vector3Add(faceCenter, faceNormal);
+        Vector2 faceScreen = cameraz_world_to_screen(faceCenter, scene->camera);
+        Vector2 normalScreen = cameraz_world_to_screen(normalEnd, scene->camera);
+        DrawLineV(faceScreen, normalScreen, BLUE);
     }
 
     vector_free(*worldVerts);

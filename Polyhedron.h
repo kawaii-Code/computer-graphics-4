@@ -46,7 +46,8 @@ void Polyhedron_updateCenter(Polyhedron* poly);
 
 Vector3 Face_calculateNormal(Polyhedron* poly, Face* face);
 void Polyhedron_calculateNormals(Polyhedron* poly);
-bool Face_isFrontFacing(Polyhedron* poly, Face* face, CameraZ* camera);
+Vector3 Face_getCenter(Polyhedron* poly, Face* face);
+bool Face_isFrontFacing(Matrix world, Polyhedron* poly, Face* face, CameraZ* camera);
 
 Matrix CreateTranslationMatrix(Vector3 translation);
 Matrix CreateRotationX(float angle);
