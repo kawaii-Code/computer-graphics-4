@@ -1,6 +1,8 @@
 #include "scene.h"
 #include "Polyhedron.h"
 
+#define Z_BUFFER_MAX 1e9
+
 void scene_obj_free(SceneObject* obj) {
     free(obj);
 }
@@ -18,6 +20,152 @@ SceneObject* scene_obj_create(Polyhedron* mesh, size_t render_layer, bool visibl
     return scene;
 }
 
+Vector3 barycentric_coordinates(Vector2 p, Vector2 a, Vector2 b, Vector2 c) {
+    // переходим в систему координат с началом в точке A
+    float v0x = b.x - a.x, v0y = b.y - a.y;
+    float v1x = c.x - a.x, v1y = c.y - a.y;
+    float v2x = p.x - a.x, v2y = p.y - a.y;
+
+    /*d00 - квадрат длины стороны AB
+      d11 - квадрат длины стороны AC
+      d01 - показывает, насколько векторы AB и AC перпендикулярны
+      d20, d21 - проекции точки P на базисные векторы*/
+    float d00 = v0x * v0x + v0y * v0y; 
+    float d01 = v0x * v1x + v0y * v1y; 
+    float d11 = v1x * v1x + v1y * v1y; 
+    float d20 = v2x * v0x + v2y * v0y; 
+    float d21 = v2x * v1x + v2y * v1y; 
+
+    float denom = d00 * d11 - d01 * d01; // определитель матрицы Грама
+    float inv_denom = 1.0f / denom;
+
+    float v = (d11 * d20 - d01 * d21) * inv_denom;
+    float w = (d00 * d21 - d01 * d20) * inv_denom;
+
+    return (Vector3) { 1.0f - v - w, v, w };
+}
+
+// Функция для вычисления ограничивающего прямоугольника
+void get_triangle_bounding_box(Vector2 v1, Vector2 v2, Vector2 v3,
+    int* min_x, int* max_x, int* min_y, int* max_y) {
+    *min_x = (int)fminf(v1.x, fminf(v2.x, v3.x));
+    *max_x = (int)fmaxf(v1.x, fmaxf(v2.x, v3.x));
+    *min_y = (int)fminf(v1.y, fminf(v2.y, v3.y));
+    *max_y = (int)fmaxf(v1.y, fmaxf(v2.y, v3.y));
+}
+
+//Точка P принадлежит треугольнику 𝑃𝑎𝑃𝑏𝑃𝑐 — все барицентрические координаты не отрицательны
+//Точка P совпадает с одной из вершин треугольника 𝑃𝑎𝑃𝑏𝑃𝑐 — две барицентрические координаты равны нулю
+//Точка P лежит на стороне треугольника 𝑃𝑎𝑃𝑏𝑃𝑐 или лежит на ее продолжении — одна из барицентрических координат равна нулю.
+//Точка P не принадлежит треугольнику 𝑃𝑎𝑃𝑏𝑃𝑐 — по крайней мере одна барицентрическая sкоордината отрицательная.
+bool point_in_triangle(Vector3 bary) {
+    return bary.x >= 0 && bary.y >= 0 && bary.z >= 0;
+}
+
+
+// Из второй лабы. А как нам быть, в наше то время?
+static void DrawBrush(ZBuffer *zbuffer, int cx, int cy, float cz) {
+    float *zbuf = &zbuffer->buffer[cy * zbuffer->width + cx];
+    if (cz < *zbuf) {
+        DrawPixel(cx, cy, BLACK);
+        *zbuf = cz;
+    }
+}
+
+static void plotLineLow(ZBuffer *zbuffer, Vector3 beg, Vector3 end) {
+    int dx = (int)end.x - (int)beg.x;
+    int dy = (int)end.y - (int)beg.y;
+    int yi = 1;
+
+    if (dy < 0) {
+        yi = -1;
+        dy *= -1;
+    }
+
+    int D = (2 * dy) - dx;
+    int y = (int)beg.y;
+    float z = beg.z;
+
+    for (int x = (int)beg.x; x <= (int)end.x; x++) {
+        DrawBrush(zbuffer, x, y, z);
+        if (D > 0) {
+            y += yi;
+            D += 2 * (dy - dx);
+        } else {
+            D += 2 * dy;
+        }
+        z = beg.z + ((float)x / (float)end.x) * (end.z - beg.z);
+    }
+}
+
+static void plotLineHigh(ZBuffer *zbuffer, Vector3 from, Vector3 to) {
+    int dx = (int)to.x - (int)from.x;
+    int dy = (int)to.y - (int)from.y;
+    int xi = 1;
+
+    if (dx < 0) {
+        xi = -1;
+        dx *= -1;
+    }
+
+    int D = (2 * dx) - dy;
+    int x = (int)from.x;
+    float z = from.z;
+
+    for (int y = (int)from.y; y <= (int)to.y; y++) {
+        DrawBrush(zbuffer, x, y, z);
+        if (D > 0) {
+            x += xi;
+            D += 2 * (dx - dy);
+        } else {
+            D += 2 * dx;
+        }
+        z = from.z + ((float)y / (float)to.y) * (to.z - from.z);
+    }
+}
+
+static void plotLine(ZBuffer *zbuffer, Vector3 beg, Vector3 end) {
+    if (abs(end.y - beg.y) < abs(end.x - beg.x)) {
+        if (beg.x > end.x) {
+            plotLineLow(zbuffer, end, beg);
+        } else {
+            plotLineLow(zbuffer, beg, end);
+        }
+    } else {
+        if (beg.y > end.y) {
+            plotLineHigh(zbuffer, end, beg);
+        } else {
+            plotLineHigh(zbuffer, beg, end);
+        }
+    }
+}
+
+
+void draw_triangle(ZBuffer *zbuffer, Vector3 a, Vector3 b, Vector3 c, Color color) {
+    Vector2 v1 = (Vector2) { .x = a.x, .y = a.y };
+    Vector2 v2 = (Vector2) { .x = b.x, .y = b.y };
+    Vector2 v3 = (Vector2) { .x = c.x, .y = c.y };
+
+    int min_x, max_x, min_y, max_y;
+    get_triangle_bounding_box(v1, v2, v3, &min_x, &max_x, &min_y, &max_y);
+
+    for (int y = min_y; y <= max_y; y++) {
+        for (int x = min_x; x <= max_x; x++) {
+            Vector2 p = { (float)x, (float)y };
+
+            Vector3 bary = barycentric_coordinates(p, v1, v2, v3);
+            if (point_in_triangle(bary)) {
+                float z = bary.x * a.z + bary.y * b.z + bary.z * c.z;
+                if (z < zbuffer->buffer[y * zbuffer->width + x]) {
+                    Color pixel_color = color;
+                    DrawPixel(x, y, pixel_color);
+                    zbuffer->buffer[y * zbuffer->width + x] = z;
+                }
+            }
+        }
+    }
+}
+
 void scene_obj_draw(Scene* scene, SceneObject* obj) {
     Matrix worldMatrix = CreateTransformMatrix(obj->mesh, obj->position, obj->rotation, obj->scale, obj->reflection_plane, obj->line_p1, obj->line_p2, obj->line_angle);
 
@@ -31,51 +179,54 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             continue;
         }
 
-     
         if (!Face_isFrontFacing(obj->mesh, face, scene->camera, worldMatrix)) {
             continue; 
         }
 
-        Vector2 *screenVerts = calloc(1, sizeof(Vector2) * indices.len);
+        Vector3 *screenVerts = calloc(1, sizeof(Vector3) * indices.len);
         for (size_t v = 0; v < indices.len; v++) {
             Vector3 worldVert = worldVerts->head[indices.head[v]];
             screenVerts[v] = cameraz_world_to_screen(worldVert, scene->camera);
         }
 
-        DrawTriangleFan(screenVerts, indices.len, obj->mesh->color);
-
         for (size_t v = 0; v < indices.len; v++) {
             int next = (v + 1) % indices.len;
-            DrawLineV(screenVerts[v], screenVerts[next], BLACK);
-        }
-    }
-
-    for (size_t f = 0; f < obj->mesh->faces.len; f++) {
-        Face* face = &obj->mesh->faces.head[f];
-        VECTOR_TYPE(int) indices = face->vertexIndices;
-
-        if (indices.len < 3) {
-            continue;
+            plotLine(&scene->zbuffer, screenVerts[v], screenVerts[next]);
         }
 
-        /*Vector3 faceCenter = Face_getCenter(obj->mesh, face);
-        faceCenter = Vector3Transform(faceCenter, worldMatrix);
-        Vector3 faceNormal = Face_calculateNormal(obj->mesh, face);
-        Vector3 normalEnd = Vector3Add(faceCenter, faceNormal);
-        Vector2 faceScreen = cameraz_world_to_screen(faceCenter, scene->camera);
-        Vector2 normalScreen = cameraz_world_to_screen(normalEnd, scene->camera);
-        DrawLineV(faceScreen, normalScreen, BLUE);*/
-        
-        Vector3 worldNormal = Face_calculateNormal_World(obj->mesh, face, worldMatrix);
-        Vector3 faceCenter = Face_getCenter_World(obj->mesh, face, worldMatrix);
+        for (int i = 0; i < indices.len - 1; i++) {
+            draw_triangle(&scene->zbuffer, screenVerts[0], screenVerts[i], screenVerts[i + 1], obj->mesh->color);
+        }
 
-        Vector3 normalEnd = Vector3Add(faceCenter, Vector3Scale(worldNormal, 0.5f));
-        Vector2 faceScreen = cameraz_world_to_screen(faceCenter, scene->camera);
-        Vector2 normalScreen = cameraz_world_to_screen(normalEnd, scene->camera);
-
-        bool isVisible = Face_isFrontFacing(obj->mesh, face, scene->camera,worldMatrix);
-        DrawLineV(faceScreen, normalScreen, isVisible ? GREEN : RED);
+        free(screenVerts);
     }
+
+    //for (size_t f = 0; f < obj->mesh->faces.len; f++) {
+    //    Face* face = &obj->mesh->faces.head[f];
+    //    VECTOR_TYPE(int) indices = face->vertexIndices;
+
+    //    if (indices.len < 3) {
+    //        continue;
+    //    }
+
+    //    /*Vector3 faceCenter = Face_getCenter(obj->mesh, face);
+    //    faceCenter = Vector3Transform(faceCenter, worldMatrix);
+    //    Vector3 faceNormal = Face_calculateNormal(obj->mesh, face);
+    //    Vector3 normalEnd = Vector3Add(faceCenter, faceNormal);
+    //    Vector2 faceScreen = cameraz_world_to_screen(faceCenter, scene->camera);
+    //    Vector2 normalScreen = cameraz_world_to_screen(normalEnd, scene->camera);
+    //    DrawLineV(faceScreen, normalScreen, BLUE);*/
+    //    
+    //    Vector3 worldNormal = Face_calculateNormal_World(obj->mesh, face, worldMatrix);
+    //    Vector3 faceCenter = Face_getCenter_World(obj->mesh, face, worldMatrix);
+
+    //    Vector3 normalEnd = Vector3Add(faceCenter, Vector3Scale(worldNormal, 0.5f));
+    //    Vector2 faceScreen = cameraz_world_to_screen(faceCenter, scene->camera);
+    //    Vector2 normalScreen = cameraz_world_to_screen(normalEnd, scene->camera);
+
+    //    bool isVisible = Face_isFrontFacing(obj->mesh, face, scene->camera,worldMatrix);
+    //    DrawLineV(faceScreen, normalScreen, isVisible ? GREEN : RED);
+    //}
 
     vector_free(*worldVerts);
     free(worldVerts);
@@ -98,10 +249,15 @@ Scene* scene_create(CameraZ* camera) {
 }
 
 void draw_coordinate_axes(CameraZ* camera) {
-    Vector2 origin = cameraz_world_to_screen((Vector3){0, 0, 0}, camera);
-    Vector2 x_axis = cameraz_world_to_screen((Vector3){5, 0, 0}, camera);
-    Vector2 y_axis = cameraz_world_to_screen((Vector3){0, 5, 0}, camera);
-    Vector2 z_axis = cameraz_world_to_screen((Vector3){0, 0, 5}, camera);
+    Vector3 _origin = cameraz_world_to_screen((Vector3){0, 0, 0}, camera);
+    Vector3 _x_axis = cameraz_world_to_screen((Vector3){5, 0, 0}, camera);
+    Vector3 _y_axis = cameraz_world_to_screen((Vector3){0, 5, 0}, camera);
+    Vector3 _z_axis = cameraz_world_to_screen((Vector3){0, 0, 5}, camera);
+
+    Vector2 origin = { .x = _origin.x, .y = _origin.y };
+    Vector2 x_axis = { .x = _x_axis.x, .y = _x_axis.y };
+    Vector2 y_axis = { .x = _y_axis.x, .y = _y_axis.y };
+    Vector2 z_axis = { .x = _z_axis.x, .y = _z_axis.y };
 
     DrawLineV(origin, x_axis, RED);
     DrawLineV(origin, y_axis, GREEN);
@@ -117,6 +273,10 @@ void scene_draw(Scene* scene) {
     CameraZ* camera = scene->camera;
 
     draw_coordinate_axes(camera);
+
+    for (int i = 0; i < scene->zbuffer.width * scene->zbuffer.height; i++) {
+        scene->zbuffer.buffer[i] = Z_BUFFER_MAX;
+    }
 
     for (size_t i = 0; i < objs.len; i++) {
         SceneObject* obj = vector_get(objs, i);

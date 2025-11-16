@@ -70,7 +70,7 @@ void cameraz_update(CameraZ *camera) {
 //
 // }
 
-Vector2 cameraz_world_to_screen(Vector3 worldPos, const CameraZ* camera) {
+Vector3 cameraz_world_to_screen(Vector3 worldPos, const CameraZ* camera) {
     Vector4 clipPos = {0};
 
     Vector4 viewPos = {
@@ -91,9 +91,10 @@ Vector2 cameraz_world_to_screen(Vector3 worldPos, const CameraZ* camera) {
         clipPos.z /= clipPos.w;
     }
 
-    Vector2 screenPos = {
+    Vector3 screenPos = {
         (clipPos.x + 1.0f) * 0.5f * camera->width,
-        (1.0f - clipPos.y) * 0.5f * camera->height
+        (1.0f - clipPos.y) * 0.5f * camera->height,
+        clipPos.z,
     };
 
     return screenPos;

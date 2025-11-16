@@ -156,6 +156,8 @@ int main(int argc, char **argv) {
     while (!WindowShouldClose()) {
         Window_Info window = get_window_info();
         SetWindowTitle("Лаба 5");
+        scene->zbuffer.width = window.width;
+        scene->zbuffer.height = window.height;
 
         typedef enum {
             MODE_NONE,
@@ -303,23 +305,36 @@ int main(int argc, char **argv) {
                     Vector3 v = Vector3Transform(points[j], transform);
                     Polyhedron_addVertex(p, v);
                 }
-                for (int i = 0; i < points_count; i++) {
-                    indices[i] = max_index + i;
+
+                for (int j = 0; j < (points_count - 1); j++) {
+                    int temp_indices[3] = {0};
+                    temp_indices[0] = max_index + j;
+                    temp_indices[1] = max_index + j + 1;
+                    temp_indices[2] = max_index + points_count + j;
+                    Polyhedron_addFace(p, temp_indices, 3);
+
+                    temp_indices[0] = max_index + points_count + j;
+                    temp_indices[1] = max_index + j + 1;
+                    temp_indices[2] = max_index + points_count + j + 1;
+                    Polyhedron_addFace(p, temp_indices, 3);
                 }
-                for (int i = 0; i < points_count; i++) {
-                    indices[points_count + i] = max_index + indices_len - i - 1;
-                }
-                Polyhedron_addFace(p, indices, indices_len);
+
                 max_index += points_count;
+
                 current_angle += angle;
             }
-            for (int i = 0; i < points_count; i++) {
-                indices[i] = max_index + i;
+            for (int j = 0; j < (points_count - 1); j++) {
+                int temp_indices[3] = {0};
+                temp_indices[0] = max_index + j;
+                temp_indices[1] = max_index + j + 1;
+                temp_indices[2] = j;
+                Polyhedron_addFace(p, temp_indices, 3);
+
+                temp_indices[0] = j;
+                temp_indices[1] = max_index + j + 1;
+                temp_indices[2] = j + 1;
+                Polyhedron_addFace(p, temp_indices, 3);
             }
-            for (int i = 0; i < points_count; i++) {
-                indices[points_count + i] = points_count - i - 1;
-            }
-            Polyhedron_addFace(p, indices, indices_len);
 
             int *top_indices = calloc(1, number_of_rotations * sizeof *indices);
             for (int i = 0; i < number_of_rotations; i++) {
@@ -623,6 +638,7 @@ int main(int argc, char **argv) {
         for (int i = 0; i < 6; i++) {
             objs[i]->visible = false;
         }
+        objs[0]->visible = true;
         objs[selected]->visible = true;
         objs[selected]->position = user_translation;
         objs[selected]->rotation = (Vector3){user_rotation.x, user_rotation.y, user_rotation.z};
@@ -639,10 +655,10 @@ int main(int argc, char **argv) {
         }
         draw_epic_ui_for_my_EPIC_tasks(&epic_data);
 
-        Vector2 p1 = cameraz_world_to_screen(line_p1, camera);
-        Vector2 p2 = cameraz_world_to_screen(line_p2, camera);
+        //Vector2 p1 = cameraz_world_to_screen(line_p1, camera);
+        //Vector2 p2 = cameraz_world_to_screen(line_p2, camera);
 
-        DrawLineV(p1, p2, BLACK);
+        //DrawLineV(p1, p2, BLACK);
         EndDrawing();
     }
     Polyhedron_free(tetra);
@@ -846,15 +862,15 @@ void draw_epic_ui_for_my_EPIC_tasks(My_Epic_Tasks_Info *epic_data) {
             rec.x = button_x;
             rec.width /= 3;
             rec.height *= 0.75f;
-            if (GuiSliderBar(rec, "-1", "1", &epic_data->points[i].x, -1.0f, 1.0f)) {
+            if (GuiSliderBar(rec, "-1", "1", &epic_data->points[i].x, -5.0f, 5.0f)) {
                 epic_data->do_epic_rotate_task = true;
             }
             rec.x += rec.width + 20;
-            if (GuiSliderBar(rec, "-1", "1", &epic_data->points[i].y, -1.0f, 1.0f)) {
+            if (GuiSliderBar(rec, "-1", "1", &epic_data->points[i].y, -5.0f, 5.0f)) {
                 epic_data->do_epic_rotate_task = true;
             }
             rec.x += rec.width + 20;
-            if (GuiSliderBar(rec, "-1", "1", &epic_data->points[i].z, -1.0f, 1.0f)) {
+            if (GuiSliderBar(rec, "-1", "1", &epic_data->points[i].z, -5.0f, 5.0f)) {
                 epic_data->do_epic_rotate_task = true;
             }
             slider.y += rec.height + 5;

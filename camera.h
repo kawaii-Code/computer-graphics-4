@@ -33,6 +33,6 @@ void cameraz_free(CameraZ *camera);
 CameraZ* cameraz_create(Vector3 position, Vector3 target, Vector3 up, float fovy, float aspect, float zoom, float nearPlane, float farPlane, int width, int height, CameraProjectionType projection_type);
 
 void cameraz_update(CameraZ *camera);
-Vector2 cameraz_world_to_screen(Vector3 worldPos, const CameraZ* camera);
+Vector3 cameraz_world_to_screen(Vector3 worldPos, const CameraZ* camera);
 
 #endif //CAMERA_H

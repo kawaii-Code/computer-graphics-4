@@ -32,8 +32,15 @@ SceneObject* scene_obj_create(Polyhedron* mesh, size_t render_layer, bool visibl
 vector_ptr(SceneObject);
 
 typedef struct {
+     float buffer[1920*1080];
+     int width;
+     int height;
+} ZBuffer;
+
+typedef struct {
      VECTOR_PTR_TYPE(SceneObject) objs;
      CameraZ* camera;
+     ZBuffer zbuffer;
 } Scene;
 
 void scene_obj_draw(Scene* scene, SceneObject* obj);
