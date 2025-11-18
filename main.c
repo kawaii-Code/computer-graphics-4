@@ -363,7 +363,8 @@ int main(int argc, char **argv) {
             int min_y = epic_data.min_z;
             int max_y = epic_data.max_z;
 
-            int indices[4] = {0};
+            /*int indices[4] = {0};*/
+            int indices[3] = { 0 };
 
             int max_index = 0;
             float step = 0.25f;
@@ -383,12 +384,24 @@ int main(int argc, char **argv) {
                 tx += step;
                 Polyhedron_addVertex(p, (Vector3) { .x = tx, .y = f(tx, ty), .z = ty });
 
-                indices[0] = max_index + 0;
+                /*indices[0] = max_index + 0;
                 indices[1] = max_index + 1;
                 indices[2] = max_index + 3;
                 indices[3] = max_index + 2;
                 max_index += 4;
-                Polyhedron_addFace(p, indices, 4);
+                Polyhedron_addFace(p, indices, 4);*/
+
+                indices[0] = max_index + 0;
+                indices[1] = max_index + 1;
+                indices[2] = max_index + 2;
+                Polyhedron_addFace(p, indices, 3);
+
+                indices[0] = max_index + 1;
+                indices[1] = max_index + 3;
+                indices[2] = max_index + 2;
+                Polyhedron_addFace(p, indices, 3);
+
+                max_index += 4;
 
                 x += step;
                 if (x > max_x) {
