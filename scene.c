@@ -1,5 +1,6 @@
 #include "scene.h"
 #include "Polyhedron.h"
+#include "common.h"
 
 #define Z_BUFFER_MAX 1e9
 
@@ -16,9 +17,23 @@ SceneObject* scene_obj_create(Polyhedron* mesh, size_t render_layer, bool visibl
     scene->rotation = rotation;
     scene->scale = scale;
     scene->bounding_radius = Polyhedron_bounding_radius(mesh);
+    scene->texture = NULL;       
+    scene->has_texture = false;
 
     return scene;
 }
+
+void scene_obj_toggle_texture(SceneObject* obj, TextureZ* texture) {
+    if (obj->has_texture) {
+        obj->has_texture = false;
+        obj->texture = NULL;
+    }
+    else {
+        obj->has_texture = true;
+        obj->texture = texture;
+    }
+}
+
 
 Vector3 barycentric_coordinates(Vector2 p, Vector2 a, Vector2 b, Vector2 c) {
     // переходим в систему координат с началом в точке A
@@ -94,7 +109,9 @@ static void plotLineLow(ZBuffer *zbuffer, Vector3 beg, Vector3 end) {
         } else {
             D += 2 * dy;
         }
-        z = beg.z + ((float)x / (float)end.x) * (end.z - beg.z);
+        //z = beg.z + ((float)x / (float)end.x) * (end.z - beg.z);
+        float t = (float)(x - (int)beg.x) / (float)((int)end.x - (int)beg.x);
+        z = beg.z + t * (end.z - beg.z);
     }
 }
 
@@ -120,7 +137,9 @@ static void plotLineHigh(ZBuffer *zbuffer, Vector3 from, Vector3 to) {
         } else {
             D += 2 * dx;
         }
-        z = from.z + ((float)y / (float)to.y) * (to.z - from.z);
+        //z = from.z + ((float)y / (float)to.y) * (to.z - from.z);
+        float t = (float)(x - (int)from.x) / (float)((int)to.x - (int)from.x);
+        z = from.z + t * (to.z - from.z);
     }
 }
 
@@ -166,6 +185,51 @@ void draw_triangle(ZBuffer *zbuffer, Vector3 a, Vector3 b, Vector3 c, Color colo
     }
 }
 
+void draw_textured_triangle(ZBuffer* zbuffer, Vector3 a_pos, Vector2 a_tex,
+    Vector3 b_pos, Vector2 b_tex, Vector3 c_pos, Vector2 c_tex, TextureZ* tex) {
+
+    Vector2 v1 = (Vector2){ .x = a_pos.x, .y = a_pos.y };
+    Vector2 v2 = (Vector2){ .x = b_pos.x, .y = b_pos.y };
+    Vector2 v3 = (Vector2){ .x = c_pos.x, .y = c_pos.y };
+
+    int min_x, max_x, min_y, max_y;
+    get_triangle_bounding_box(v1, v2, v3, &min_x, &max_x, &min_y, &max_y);
+
+    for (int y = min_y; y <= max_y; y++) {
+        for (int x = min_x; x <= max_x; x++) {
+            Vector2 p = { (float)x, (float)y };
+            Vector3 bary = barycentric_coordinates(p, v1, v2, v3);
+
+            if (point_in_triangle(bary)) {
+                float z = bary.x * a_pos.z + bary.y * b_pos.z + bary.z * c_pos.z;
+
+                // Интерполируем обратную глубину
+                float w = bary.x * (1.0f / a_pos.z) +
+                    bary.y * (1.0f / b_pos.z) +
+                    bary.z * (1.0f / c_pos.z);
+
+                // Интерполируем u/z и v/z
+                float u_over_w = bary.x * (a_tex.x / a_pos.z) +
+                    bary.y * (b_tex.x / b_pos.z) +
+                    bary.z * (c_tex.x / c_pos.z);
+                float v_over_w = bary.x * (a_tex.y / a_pos.z) +
+                    bary.y * (b_tex.y / b_pos.z) +
+                    bary.z * (c_tex.y / c_pos.z);
+
+                // Восстанавливаем u, v
+                float u = u_over_w / w;
+                float v = v_over_w / w;
+
+                if (z < zbuffer->buffer[y * zbuffer->width + x]) {
+                    Color pixel_color = Texture_sample(tex, u, v);
+                    DrawPixel(x, y, pixel_color);
+                    zbuffer->buffer[y * zbuffer->width + x] = z;
+                }
+            }
+        }
+    }
+}
+
 void scene_obj_draw(Scene* scene, SceneObject* obj) {
     Matrix worldMatrix = CreateTransformMatrix(obj->mesh, obj->position, obj->rotation, obj->scale, obj->reflection_plane, obj->line_p1, obj->line_p2, obj->line_angle);
 
@@ -184,20 +248,33 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
         }
 
         Vector3 *screenVerts = calloc(1, sizeof(Vector3) * indices.len);
+        Vector2 texCoords[8];
         for (size_t v = 0; v < indices.len; v++) {
             Vector3 worldVert = worldVerts->head[indices.head[v]];
             screenVerts[v] = cameraz_world_to_screen(worldVert, scene->camera);
+            texCoords[v] = obj->mesh->vertices.head[indices.head[v]].texCoord;
         }
-
-        for (size_t v = 0; v < indices.len; v++) {
-            int next = (v + 1) % indices.len;
-            plotLine(&scene->zbuffer, screenVerts[v], screenVerts[next]);
+        
+        if (obj->has_texture) {
+            // Текстурированная отрисовка - веером из первой вершины
+            for (int i = 1; i < indices.len - 1; i++) {
+                draw_textured_triangle(&scene->zbuffer,
+                    screenVerts[0], texCoords[0],
+                    screenVerts[i], texCoords[i],
+                    screenVerts[i + 1], texCoords[i + 1],
+                    obj->texture);
+            }
         }
+        else {
+            for (size_t v = 0; v < indices.len; v++) {
+                int next = (v + 1) % indices.len;
+                plotLine(&scene->zbuffer, screenVerts[v], screenVerts[next]);
+            }
 
-        for (int i = 0; i < indices.len - 1; i++) {
-            draw_triangle(&scene->zbuffer, screenVerts[0], screenVerts[i], screenVerts[i + 1], obj->mesh->color);
+            for (int i = 0; i < indices.len - 1; i++) {
+                draw_triangle(&scene->zbuffer, screenVerts[0], screenVerts[i], screenVerts[i + 1], obj->mesh->color);
+            }
         }
-
         free(screenVerts);
     }
 

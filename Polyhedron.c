@@ -146,10 +146,27 @@ bool Face_isFrontFacing(Polyhedron* poly, Face* face, CameraZ* camera, Matrix wo
 Polyhedron* Polyhedron_createTetrahedron() {
     Polyhedron* poly = Polyhedron_create();
 
-    Polyhedron_addVertex(poly, (Vector3) { 1.0f, 1.0f, 1.0f });
+    /*Polyhedron_addVertex(poly, (Vector3) { 1.0f, 1.0f, 1.0f });
     Polyhedron_addVertex(poly, (Vector3) { 1.0f, -1.0f, -1.0f });
     Polyhedron_addVertex(poly, (Vector3) { -1.0f, 1.0f, -1.0f });
-    Polyhedron_addVertex(poly, (Vector3) { -1.0f, -1.0f, 1.0f });
+    Polyhedron_addVertex(poly, (Vector3) { -1.0f, -1.0f, 1.0f });*/
+
+    Vector3 positions[4] = {
+        { 1.0f, 1.0f, 1.0f },
+        { 1.0f, -1.0f, -1.0f },
+        { -1.0f, 1.0f, -1.0f },
+        { -1.0f, -1.0f, 1.0f }
+    };
+
+    for (int i = 0; i < 4; i++) {
+        Vector3 pos = positions[i];
+        Vector3 normal = Vector3Normalize(pos);
+
+        float u = 0.5f + atan2f(pos.z, pos.x) / (2.0f * PI);
+        float v = 0.5f - asinf(pos.y) / PI;
+
+        Polyhedron_addVertexEx(poly, pos, normal, (Vector2) { u, v });
+    }
 
     int faces[4][3] = {
         {0, 1, 2}, {0, 2, 3}, {0, 3, 1}, {1, 3, 2}
@@ -169,7 +186,7 @@ Polyhedron* Polyhedron_createTetrahedron() {
 Polyhedron* Polyhedron_createHexahedron() {
     Polyhedron* poly = Polyhedron_create();
 
-    float s = 1.0f;
+    /*float s = 1.0f;
     Polyhedron_addVertex(poly, (Vector3) { -s, -s, -s });
     Polyhedron_addVertex(poly, (Vector3) { s, -s, -s });
     Polyhedron_addVertex(poly, (Vector3) { s, s, -s });
@@ -177,7 +194,18 @@ Polyhedron* Polyhedron_createHexahedron() {
     Polyhedron_addVertex(poly, (Vector3) { -s, -s, s });
     Polyhedron_addVertex(poly, (Vector3) { s, -s, s });
     Polyhedron_addVertex(poly, (Vector3) { s, s, s });
-    Polyhedron_addVertex(poly, (Vector3) { -s, s, s });
+    Polyhedron_addVertex(poly, (Vector3) { -s, s, s });*/
+    float s = 1.0f;
+    Polyhedron_addVertexEx(poly, (Vector3) { -s, -s, -s }, (Vector3) { 0, 0, -1 }, (Vector2) { 0.0f, 0.0f });
+    Polyhedron_addVertexEx(poly, (Vector3) { s, -s, -s }, (Vector3) { 0, 0, -1 }, (Vector2) { 1.0f, 0.0f });
+    Polyhedron_addVertexEx(poly, (Vector3) { s, s, -s }, (Vector3) { 0, 0, -1 }, (Vector2) { 1.0f, 1.0f });
+    Polyhedron_addVertexEx(poly, (Vector3) { -s, s, -s }, (Vector3) { 0, 0, -1 }, (Vector2) { 0.0f, 1.0f });
+
+    Polyhedron_addVertexEx(poly, (Vector3) { -s, -s, s }, (Vector3) { 0, 0, 1 }, (Vector2) { 0.0f, 0.0f });
+    Polyhedron_addVertexEx(poly, (Vector3) { s, -s, s }, (Vector3) { 0, 0, 1 }, (Vector2) { 1.0f, 0.0f });
+    Polyhedron_addVertexEx(poly, (Vector3) { s, s, s }, (Vector3) { 0, 0, 1 }, (Vector2) { 1.0f, 1.0f });
+    Polyhedron_addVertexEx(poly, (Vector3) { -s, s, s }, (Vector3) { 0, 0, 1 }, (Vector2) { 0.0f, 1.0f });
+
 
     int faces[6][4] = {
         {3, 2, 1, 0},
@@ -202,13 +230,20 @@ Polyhedron* Polyhedron_createHexahedron() {
 Polyhedron* Polyhedron_createOctahedron() {
     Polyhedron* poly = Polyhedron_create();
 
-    float s = 1.0f;
+    /*float s = 1.0f;
     Polyhedron_addVertex(poly, (Vector3) { s, 0.0f, 0.0f });
     Polyhedron_addVertex(poly, (Vector3) { -s, 0.0f, 0.0f });
     Polyhedron_addVertex(poly, (Vector3) { 0.0f, s, 0.0f });
     Polyhedron_addVertex(poly, (Vector3) { 0.0f, -s, 0.0f });
     Polyhedron_addVertex(poly, (Vector3) { 0.0f, 0.0f, s });
-    Polyhedron_addVertex(poly, (Vector3) { 0.0f, 0.0f, -s });
+    Polyhedron_addVertex(poly, (Vector3) { 0.0f, 0.0f, -s });*/
+    float s = 1.0f;
+    Polyhedron_addVertexEx(poly, (Vector3) { s, 0.0f, 0.0f }, (Vector3) { 1, 0, 0 }, (Vector2) { 0.5f, 0.0f });
+    Polyhedron_addVertexEx(poly, (Vector3) { -s, 0.0f, 0.0f }, (Vector3) { -1, 0, 0 }, (Vector2) { 0.5f, 1.0f });
+    Polyhedron_addVertexEx(poly, (Vector3) { 0.0f, s, 0.0f }, (Vector3) { 0, 1, 0 }, (Vector2) { 1.0f, 0.5f });
+    Polyhedron_addVertexEx(poly, (Vector3) { 0.0f, -s, 0.0f }, (Vector3) { 0, -1, 0 }, (Vector2) { 0.0f, 0.5f });
+    Polyhedron_addVertexEx(poly, (Vector3) { 0.0f, 0.0f, s }, (Vector3) { 0, 0, 1 }, (Vector2) { 0.5f, 0.5f });
+    Polyhedron_addVertexEx(poly, (Vector3) { 0.0f, 0.0f, -s }, (Vector3) { 0, 0, -1 }, (Vector2) { 0.5f, 0.5f });
 
     int faces[8][3] = {
         {0, 2, 4}, {0, 4, 3}, {0, 3, 5}, {0, 5, 2},
@@ -686,4 +721,54 @@ bool Polyhedron_saveToObj(Polyhedron* poly, const char* filename) {
 
     fclose(file);
     return true;
+}
+
+TextureZ* Texture_sh() {
+    TextureZ* tex = malloc(sizeof(TextureZ));
+    if (!tex) return NULL;
+
+    tex->width = 64;
+    tex->height = 64;
+    tex->pixels = malloc(tex->width * tex->height * sizeof(unsigned int));
+
+    if (!tex->pixels) {
+        free(tex);
+        return NULL;
+    }
+
+    for (int y = 0; y < tex->height; y++) {
+        for (int x = 0; x < tex->width; x++) {
+            if ((x / 8 + y / 8) % 2 == 0) {
+                tex->pixels[y * tex->width + x] = 0xFFFF0000;
+            }
+            else {
+                tex->pixels[y * tex->width + x] = 0xFFFFFF00; 
+            }
+        }
+    }
+    return tex;
+}
+
+Color Texture_sample(TextureZ* tex, float u, float v) {
+    if (!tex || !tex->pixels) return WHITE;
+
+    u = fmodf(u, 1.0f);
+    v = fmodf(v, 1.0f);
+    if (u < 0) u += 1.0f;
+    if (v < 0) v += 1.0f;
+
+    int x = (int)(u * (tex->width - 1));
+    int y = (int)(v * (tex->height - 1));
+
+    x = x % tex->width;
+    y = y % tex->height;
+
+    unsigned int pixel = tex->pixels[y * tex->width + x];
+
+    return (Color) {
+        .r = (pixel >> 16) & 0xFF,  
+            .g = (pixel >> 8) & 0xFF,     
+            .b = pixel & 0xFF,         
+            .a = 255                    
+    };
 }

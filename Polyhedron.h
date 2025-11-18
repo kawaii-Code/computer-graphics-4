@@ -8,8 +8,14 @@
 
 // Текстурные координаты
 typedef struct {
-    float u, v;
+    float x, y;
 } TexCoord;
+
+typedef struct {
+    unsigned int* pixels;
+    int width;
+    int height;
+} TextureZ;
 
 // Вершина
 typedef struct {
@@ -80,6 +86,8 @@ VECTOR_TYPE(Vector3)* Polyhedron_transform(Polyhedron* poly, Matrix transform);
 bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename);
 bool Polyhedron_saveToObj(Polyhedron* poly, const char* filename);
 
+TextureZ* Texture_sh();
+Color Texture_sample(TextureZ* tex, float u, float v);
 
 float Polyhedron_bounding_radius(Polyhedron* poly);
 

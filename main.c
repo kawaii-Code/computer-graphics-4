@@ -68,6 +68,21 @@ bool update_camera = true;
 
 Polyhedron* current_poly;
 
+TextureZ* global_texture = NULL;
+bool texture_loaded = false;
+bool texture_enabled = false;
+
+void init_textures() {
+    global_texture = Texture_sh();
+    if (global_texture) {
+        texture_loaded = true;
+        printf("Texture loaded successfully\n");
+    }
+    else {
+        printf("Failed to load texture\n");
+    }
+}
+
 Matrix CreateRotationAroundLine(Vector3 p1, Vector3 p2, float angle);
 
 float function5(float x, float y) {
@@ -108,6 +123,8 @@ int main(int argc, char **argv) {
     init();
     SetWindowSize(menu_window_width, menu_window_height);
     srand(time(NULL));
+
+    init_textures();
 
     CameraZ* camera = cameraz_create((Vector3) {0, 0, 10},
         (Vector3) {0, 0, 0},
@@ -267,6 +284,17 @@ int main(int argc, char **argv) {
         if (IsKeyDown(KEY_X)) {
             camera->zoom = fmaxf(0.3, camera->zoom / 1.02f);
             update_camera = true;
+        }
+
+        if (IsKeyPressed(KEY_N)) {
+            texture_enabled = !texture_enabled;
+
+            for (int i = 0; i < polyhedron_count; i++) {
+                objs[i]->has_texture = texture_enabled;
+                objs[i]->texture = texture_enabled ? global_texture : NULL;
+            }
+
+            printf("Texturing %s\n", texture_enabled ? "ENABLED" : "DISABLED");
         }
 
         if (epic_data.do_epic_rotate_task) {
