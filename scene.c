@@ -17,8 +17,6 @@ SceneObject* scene_obj_create(Polyhedron* mesh, size_t render_layer, bool visibl
     scene->rotation = rotation;
     scene->scale = scale;
     scene->bounding_radius = Polyhedron_bounding_radius(mesh);
-    scene->texture = NULL;       
-    scene->has_texture = false;
 
     return scene;
 }
@@ -136,7 +134,6 @@ static void plotLineHigh(ZBuffer *zbuffer, Vector3 from, Vector3 to) {
         } else {
             D += 2 * dx;
         }
-        //z = from.z + ((float)y / (float)to.y) * (to.z - from.z);
         float t = (float)(x - (int)from.x) / (float)((int)to.x - (int)from.x);
         z = from.z + t * (to.z - from.z);
     }

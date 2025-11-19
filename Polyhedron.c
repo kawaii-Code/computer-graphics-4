@@ -552,7 +552,6 @@ Matrix CreateTransformMatrix(Polyhedron* poly, Vector3 translation, Vector3 rota
     return transform;
 }
 
-
 bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename) {
     FILE* file = fopen(filename, "r");
     if (!file) { return false; }
@@ -560,18 +559,26 @@ bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename) {
     char line[256];
 
     Vector3* tempPositions = NULL;
-    Vector3* tempNormals = NULL;
     Vector2* tempTexCoords = NULL;
-    Face* tempFaces = NULL;
+    Vector3* tempNormals = NULL;
 
     size_t tempPositionsCount = 0;
-    size_t tempNormalsCount = 0;
     size_t tempTexCoordsCount = 0;
-    size_t tempFacesCount = 0;
+    size_t tempNormalsCount = 0;
 
     size_t tempPositionsCapacity = 0;
-    size_t tempNormalsCapacity = 0;
     size_t tempTexCoordsCapacity = 0;
+    size_t tempNormalsCapacity = 0;
+
+    typedef struct {
+        int* v_indices;
+        int* vt_indices;
+        int* vn_indices;
+        size_t count;
+    } TempFace;
+
+    TempFace* tempFaces = NULL;
+    size_t tempFacesCount = 0;
     size_t tempFacesCapacity = 0;
 
     while (fgets(line, sizeof(line), file)) {
@@ -588,6 +595,20 @@ bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename) {
                 tempPositions[tempPositionsCount++] = pos;
             }
         }
+        // Текстурные координаты (vt)
+        else if (line[0] == 'v' && line[1] == 't' && line[2] == ' ') {
+            Vector2 texCoord;
+            float dummy;
+            int components = sscanf(line, "vt %f %f %f", &texCoord.x, &texCoord.y, &dummy);
+
+            if (components >= 2) { 
+                if (tempTexCoordsCount >= tempTexCoordsCapacity) {
+                    tempTexCoordsCapacity = tempTexCoordsCapacity == 0 ? 16 : tempTexCoordsCapacity * 2;
+                    tempTexCoords = realloc(tempTexCoords, tempTexCoordsCapacity * sizeof(Vector2));
+                }
+                tempTexCoords[tempTexCoordsCount++] = texCoord;
+            }
+        }
         // Нормали (vn)
         else if (line[0] == 'v' && line[1] == 'n' && line[2] == ' ') {
             Vector3 normal;
@@ -599,100 +620,111 @@ bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename) {
                 tempNormals[tempNormalsCount++] = normal;
             }
         }
-        // Текстурные координаты (vt)
-        else if (line[0] == 'v' && line[1] == 't' && line[2] == ' ') {
-            Vector2 texCoord;
-            if (sscanf(line, "vt %f %f", &texCoord.x, &texCoord.y) == 2) {
-                if (tempTexCoordsCount >= tempTexCoordsCapacity) {
-                    tempTexCoordsCapacity = tempTexCoordsCapacity == 0 ? 16 : tempTexCoordsCapacity * 2;
-                    tempTexCoords = realloc(tempTexCoords, tempTexCoordsCapacity * sizeof(Vector2));
-                }
-                tempTexCoords[tempTexCoordsCount++] = texCoord;
-            }
-        }
         // Грани (f)
         else if (line[0] == 'f' && line[1] == ' ') {
-            Face face;
-            vector_init(face.vertexIndices);
+            if (tempFacesCount >= tempFacesCapacity) {
+                tempFacesCapacity = tempFacesCapacity == 0 ? 16 : tempFacesCapacity * 2;
+                tempFaces = realloc(tempFaces, tempFacesCapacity * sizeof(TempFace));
+            }
+
+            TempFace* face = &tempFaces[tempFacesCount];
+            face->v_indices = NULL;
+            face->vt_indices = NULL;
+            face->vn_indices = NULL;
+            face->count = 0;
+
+            size_t faceCapacity = 0;
 
             char* token = strtok(line + 2, " \t\n");
-            int vertexCount = 0;
-
             while (token) {
-                int vIdx = 0, vtIdx = 0, vnIdx = 0;
+                int v = -1, vt = -1, vn = -1;
 
-                if (sscanf(token, "%d/%d/%d", &vIdx, &vtIdx, &vnIdx) == 3) {
-                    if (vIdx > 0 && vIdx <= (int)tempPositionsCount) {
-                        vector_append(face.vertexIndices, vIdx - 1);
-                        vertexCount++;
-                    }
+                if (sscanf(token, "%d/%d/%d", &v, &vt, &vn) == 3) {
+                    // v/vt/vn 
                 }
-                else if (sscanf(token, "%d//%d", &vIdx, &vnIdx) == 2) {
-                    if (vIdx > 0 && vIdx <= (int)tempPositionsCount) {
-                        vector_append(face.vertexIndices, vIdx - 1);
-                        vertexCount++;
-                    }
+                else if (sscanf(token, "%d//%d", &v, &vn) == 2) {
+                    vt = -1; 
                 }
-                else if (sscanf(token, "%d/%d", &vIdx, &vtIdx) == 2) {
-                    if (vIdx > 0 && vIdx <= (int)tempPositionsCount) {
-                        vector_append(face.vertexIndices, vIdx - 1);
-                        vertexCount++;
-                    }
+                else if (sscanf(token, "%d/%d", &v, &vt) == 2) {
+                    vn = -1; 
                 }
-                else if (sscanf(token, "%d", &vIdx) == 1) {
-                    if (vIdx > 0 && vIdx <= (int)tempPositionsCount) {
-                        vector_append(face.vertexIndices, vIdx - 1);
-                        vertexCount++;
-                    }
+                else if (sscanf(token, "%d", &v) == 1) {
+                    vt = -1;  
+                    vn = -1;  
                 }
+
+                if (v != -1) {
+                    if (v < 0) v = tempPositionsCount + v + 1;
+                    if (vt < 0) vt = tempTexCoordsCount + vt + 1;
+                    if (vn < 0) vn = tempNormalsCount + vn + 1;
+
+                    if (face->count >= faceCapacity) {
+                        faceCapacity = faceCapacity == 0 ? 4 : faceCapacity * 2;
+                        face->v_indices = realloc(face->v_indices, faceCapacity * sizeof(int));
+                        face->vt_indices = realloc(face->vt_indices, faceCapacity * sizeof(int));
+                        face->vn_indices = realloc(face->vn_indices, faceCapacity * sizeof(int));
+                    }
+
+                    face->v_indices[face->count] = v;
+                    face->vt_indices[face->count] = vt;
+                    face->vn_indices[face->count] = vn;
+                    face->count++;
+                }
+
                 token = strtok(NULL, " \t\n");
             }
 
-            if (face.vertexIndices.len >= 3) {
-                if (tempFacesCount >= tempFacesCapacity) {
-                    tempFacesCapacity = tempFacesCapacity == 0 ? 16 : tempFacesCapacity * 2;
-                    tempFaces = realloc(tempFaces, tempFacesCapacity * sizeof(Face));
-                }
-                tempFaces[tempFacesCount++] = face;
+            if (face->count >= 3) {
+                tempFacesCount++;
             }
             else {
-                vector_free(face.vertexIndices);
+                free(face->v_indices);
+                free(face->vt_indices);
+                free(face->vn_indices);
             }
         }
     }
-
     fclose(file);
 
-    for (size_t i = 0; i < tempPositionsCount; i++) {
-        Vertex vertex = { 0 };
-        vertex.position = tempPositions[i];
+    for (size_t f = 0; f < tempFacesCount; f++) {
+        TempFace* tempFace = &tempFaces[f];
+        Face face;
+        vector_init(face.vertexIndices);
 
-        if (i < tempTexCoordsCount) {
-            vertex.texCoord = tempTexCoords[i];
+        for (size_t v = 0; v < tempFace->count; v++) {
+            Vertex vertex = { 0 };
+
+            int v_idx = tempFace->v_indices[v];
+            if (v_idx > 0 && v_idx <= (int)tempPositionsCount) {
+                vertex.position = tempPositions[v_idx - 1];
+            }
+
+            int vt_idx = tempFace->vt_indices[v];
+            if (vt_idx > 0 && vt_idx <= (int)tempTexCoordsCount) {
+                vertex.texCoord = tempTexCoords[vt_idx - 1];
+            }
+            else {
+                vertex.texCoord = (Vector2){ 0, 0 };
+            }
+
+            int vn_idx = tempFace->vn_indices[v];
+            if (vn_idx > 0 && vn_idx <= (int)tempNormalsCount) {
+                vertex.normal = tempNormals[vn_idx - 1];
+            }
+            else {
+                vertex.normal = (Vector3){ 0, 0, 0 };
+            }
+
+            vector_append(poly->vertices, vertex);
+            vector_append(face.vertexIndices, poly->vertices.len - 1);
+        }
+
+        if (face.vertexIndices.len >= 3) {
+            vector_append(poly->faces, face);
         }
         else {
-            vertex.texCoord = (Vector2){ 0, 0 };
+            vector_free(face.vertexIndices);
         }
-
-        if (i < tempNormalsCount) {
-            vertex.normal = tempNormals[i];
-        }
-        else {
-            vertex.normal = (Vector3){ 0, 0, 0 };
-        }
-
-        vector_append(poly->vertices, vertex);
-    }
-
-    for (size_t i = 0; i < tempFacesCount; i++) {
-        Face newFace;
-        vector_init(newFace.vertexIndices);
-
-        for (size_t j = 0; j < tempFaces[i].vertexIndices.len; j++) {
-            vector_append(newFace.vertexIndices, tempFaces[i].vertexIndices.head[j]);
-        }
-
-        vector_append(poly->faces, newFace);
     }
 
     if (tempNormalsCount == 0) {
@@ -702,10 +734,13 @@ bool Polyhedron_loadFromObj(Polyhedron* poly, const char* filename) {
     poly->color = WHITE;
 
     free(tempPositions);
-    free(tempNormals);
     free(tempTexCoords);
+    free(tempNormals);
+
     for (size_t i = 0; i < tempFacesCount; i++) {
-        vector_free(tempFaces[i].vertexIndices);
+        free(tempFaces[i].v_indices);
+        free(tempFaces[i].vt_indices);
+        free(tempFaces[i].vn_indices);
     }
     free(tempFaces);
 
@@ -780,18 +815,53 @@ Color Texture_sample(TextureZ* tex, float u, float v) {
     if (u < 0) u += 1.0f;
     if (v < 0) v += 1.0f;
 
-    int x = (int)(u * (tex->width - 1));
-    int y = (int)(v * (tex->height - 1));
+    int x = (int)(u * tex->width);
+    int y = (int)(v * tex->height);
 
-    x = x % tex->width;
-    y = y % tex->height;
+    x = Clamp(x, 0, tex->width - 1);
+    y = Clamp(y, 0, tex->height - 1);
 
     unsigned int pixel = tex->pixels[y * tex->width + x];
 
     return (Color) {
-        .r = (pixel >> 16) & 0xFF,  
-            .g = (pixel >> 8) & 0xFF,     
-            .b = pixel & 0xFF,         
-            .a = 255                    
+        .r = (pixel >> 16) & 0xFF,
+            .g = (pixel >> 8) & 0xFF,
+            .b = pixel & 0xFF,
+            .a = 255
     };
+}
+
+TextureZ* load_texture_from_file(const char* filename) {
+    Image image = LoadImage(filename);
+    if (image.data == NULL) {
+        printf("Failed to load texture: %s\n", filename);
+        return NULL;
+    }
+
+    TextureZ* tex = malloc(sizeof(TextureZ));
+    if (!tex) {
+        UnloadImage(image);
+        return NULL;
+    }
+
+    tex->width = image.width;
+    tex->height = image.height;
+    tex->pixels = malloc(tex->width * tex->height * sizeof(unsigned int));
+
+    if (!tex->pixels) {
+        free(tex);
+        UnloadImage(image);
+        return NULL;
+    }
+
+    for (int y = 0; y < tex->height; y++) {
+        for (int x = 0; x < tex->width; x++) {
+            Color pixel = GetImageColor(image, x, y);
+            tex->pixels[y * tex->width + x] =
+                (pixel.a << 24) | (pixel.r << 16) | (pixel.g << 8) | pixel.b;
+        }
+    }
+
+    UnloadImage(image);
+    return tex;
 }

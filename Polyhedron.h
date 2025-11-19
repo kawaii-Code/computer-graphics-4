@@ -89,6 +89,7 @@ bool Polyhedron_saveToObj(Polyhedron* poly, const char* filename);
 
 TextureZ* Texture_sh();
 Color Texture_sample(TextureZ* tex, float u, float v);
+TextureZ* load_texture_from_file(const char* filename);
 
 float Polyhedron_bounding_radius(Polyhedron* poly);
 

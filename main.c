@@ -69,17 +69,39 @@ bool update_camera = true;
 Polyhedron* current_poly;
 
 TextureZ* global_texture = NULL;
+TextureZ* chess_texture = NULL;
 bool texture_loaded = false;
 bool texture_enabled = false;
+bool use_custom_texture = true; 
+
+static char textureFilePath[256] = "textures/skull.jpg";
+static bool editTextureFile = false;
 
 void init_textures() {
-    global_texture = Texture_sh();
-    if (global_texture) {
+    chess_texture = Texture_sh();
+
+    global_texture = load_texture_from_file(textureFilePath);
+
+    if (chess_texture) {
         texture_loaded = true;
-        printf("Texture loaded successfully\n");
+        printf("Chess texture loaded successfully\n");
+
+        for (int i = 0; i < polyhedron_count; i++) {
+            if (objs[i] != NULL) {
+                objs[i]->has_texture = texture_enabled;
+                objs[i]->texture = texture_enabled ? chess_texture : NULL;
+            }
+            else {
+                printf("WARNING: objs[%d] is NULL!\n", i);
+            }
+        }
+    }
+
+    if (global_texture) {
+        printf("External texture loaded from %s\n", textureFilePath);
     }
     else {
-        printf("Failed to load texture\n");
+        printf("Failed to load external texture from %s\n", textureFilePath);
     }
 }
 
@@ -165,7 +187,7 @@ int main(int argc, char **argv) {
         scene_add_obj(scene, objs[i]);
     }
 
-    static char loadFilePath[256] = "Mash/utah_teapot_lowpoly.obj";
+    static char loadFilePath[256] = "Mash/Skull.obj";
     static char saveFilePath[256] = "Mash/result.obj";
     static bool editLoadFile = false;
     static bool editSaveFile = false;
@@ -289,12 +311,37 @@ int main(int argc, char **argv) {
         if (IsKeyPressed(KEY_N)) {
             texture_enabled = !texture_enabled;
 
+            TextureZ* current_texture = use_custom_texture ? chess_texture : global_texture;
+
             for (int i = 0; i < polyhedron_count; i++) {
-                objs[i]->has_texture = texture_enabled;
-                objs[i]->texture = texture_enabled ? global_texture : NULL;
+                if (objs[i] != NULL) {
+                    objs[i]->has_texture = texture_enabled;
+                    objs[i]->texture = texture_enabled ? current_texture : NULL;
+                }
             }
 
-            printf("Texturing %s\n", texture_enabled ? "ENABLED" : "DISABLED");
+            printf("Texturing %s (%s) for all objects\n",
+                texture_enabled ? "ENABLED" : "DISABLED",
+                use_custom_texture ? "CHESS" : "LOADED");
+        }
+
+        if (IsKeyPressed(KEY_M)) {
+            if (!global_texture) {
+                printf("No external texture loaded, using chess texture\n");
+                use_custom_texture = true;
+            }
+            else {
+                use_custom_texture = !use_custom_texture;
+
+                if (texture_enabled) {
+                    TextureZ* current_texture = use_custom_texture ? chess_texture : global_texture;
+                    for (int i = 0; i < polyhedron_count; i++) {
+                        objs[i]->texture = current_texture;
+                    }
+                }
+
+                printf("Using %s texture\n", use_custom_texture ? "CHESS" : "LOADED");
+            }
         }
 
         if (epic_data.do_epic_rotate_task) {
@@ -488,11 +535,20 @@ int main(int argc, char **argv) {
         }
         Rectangle load_btn = { load_panel.x + 10, load_panel.y + 55, load_panel.width - 20, 20 };
         if (Button(load_btn, "Загрузить")) {
-            if (Polyhedron_loadFromObj(current_poly, loadFilePath)) {
+            Polyhedron* new_poly = Polyhedron_create();
+
+            if (Polyhedron_loadFromObj(new_poly, loadFilePath)) {
                 printf("Модель успешно загружена из %s\n", loadFilePath);
 
-                objs[selected]->visible = false;
-                *objs[5] = *scene_obj_create(current_poly, 0, 1, (Vector3) {0, 0, 0}, (Vector3) {0, 0, 0}, (Vector3) {1, 1, 1});
+                if (objs[5]->mesh != NULL) {
+                    Polyhedron_free(objs[5]->mesh);
+                }
+
+                objs[5]->mesh = new_poly;
+                objs[5]->has_texture = texture_enabled;
+                objs[5]->texture = texture_enabled ? (use_custom_texture ? chess_texture : global_texture) : NULL;
+                objs[5]->bounding_radius = Polyhedron_bounding_radius(new_poly);
+
                 prev_obj = selected;
                 selected = 5;
             }
@@ -518,6 +574,50 @@ int main(int argc, char **argv) {
             else {
                 printf("Ошибка сохранения модели в %s\n", saveFilePath);
             }
+        }
+
+        Rectangle texture_panel = { button_x + 220, button_y + 2 * (button_height + button_spacing) + 60, button_width, button_height };
+
+        DrawTextEx(fonts[FONT_MAIN], "Загрузка текстуры:", (Vector2) { texture_panel.x + 5, texture_panel.y + 5 }, 14, 0, BLACK);
+
+        Rectangle texture_file_input = { texture_panel.x + 10, texture_panel.y + 25, texture_panel.width - 20, 25 };
+        if (GuiTextBox(texture_file_input, textureFilePath, 256, editTextureFile)) {
+            editTextureFile = !editTextureFile;
+        }
+
+        Rectangle texture_load_btn = { texture_panel.x + 10, texture_panel.y + 55, (texture_panel.width - 30) / 2, 20 };
+        if (Button(texture_load_btn, "Загрузить")) {
+            TextureZ* new_texture = load_texture_from_file(textureFilePath);
+            if (new_texture) {
+                if (global_texture) {
+                    free(global_texture->pixels);
+                    free(global_texture);
+                }
+                global_texture = new_texture;
+                use_custom_texture = false; 
+
+                if (texture_enabled) {
+                    for (int i = 0; i < polyhedron_count; i++) {
+                        objs[i]->texture = global_texture;
+                    }
+                }
+                printf("Texture successfully loaded from %s\n", textureFilePath);
+            }
+            else {
+                printf("Failed to load texture from %s\n", textureFilePath);
+            }
+        }
+
+        Rectangle texture_chess_btn = { texture_panel.x + 20 + (texture_panel.width - 30) / 2, texture_panel.y + 55, (texture_panel.width - 30) / 2, 20 };
+        if (Button(texture_chess_btn, "Шахматная")) {
+            use_custom_texture = true;
+
+            if (texture_enabled) {
+                for (int i = 0; i < polyhedron_count; i++) {
+                    objs[i]->texture = chess_texture;
+                }
+            }
+            printf("Switched to chess texture\n");
         }
 
         Rectangle reset_btn = { button_x, button_y + 5 * (button_height + button_spacing), button_width, button_height };
@@ -700,6 +800,14 @@ int main(int argc, char **argv) {
     Polyhedron_free(octa);
     Polyhedron_free(ico);
     Polyhedron_free(dodeca);
+    if (chess_texture) {
+        free(chess_texture->pixels);
+        free(chess_texture);
+    }
+    if (global_texture) {
+        free(global_texture->pixels);
+        free(global_texture);
+    }
 }
 
 void init() {
