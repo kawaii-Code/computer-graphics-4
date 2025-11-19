@@ -109,7 +109,6 @@ static void plotLineLow(ZBuffer *zbuffer, Vector3 beg, Vector3 end) {
         } else {
             D += 2 * dy;
         }
-        //z = beg.z + ((float)x / (float)end.x) * (end.z - beg.z);
         float t = (float)(x - (int)beg.x) / (float)((int)end.x - (int)beg.x);
         z = beg.z + t * (end.z - beg.z);
     }
@@ -254,7 +253,7 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             screenVerts[v] = cameraz_world_to_screen(worldVert, scene->camera);
             texCoords[v] = obj->mesh->vertices.head[indices.head[v]].texCoord;
         }
-        
+
         if (obj->has_texture) {
             // Текстурированная отрисовка - веером из первой вершины
             for (int i = 1; i < indices.len - 1; i++) {
@@ -293,7 +292,7 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
     //    Vector2 faceScreen = cameraz_world_to_screen(faceCenter, scene->camera);
     //    Vector2 normalScreen = cameraz_world_to_screen(normalEnd, scene->camera);
     //    DrawLineV(faceScreen, normalScreen, BLUE);*/
-    //    
+    //
     //    Vector3 worldNormal = Face_calculateNormal_World(obj->mesh, face, worldMatrix);
     //    Vector3 faceCenter = Face_getCenter_World(obj->mesh, face, worldMatrix);
 

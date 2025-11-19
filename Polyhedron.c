@@ -114,6 +114,29 @@ void Polyhedron_calculateNormals(Polyhedron* poly) {
     }
 }
 
+Polyhedron *Polyhedron_splitToTriangles(Polyhedron* poly) {
+    Polyhedron *result = Polyhedron_create();
+    result->color = poly->color;
+
+    for (int i = 0; i < poly->vertices.len; i++) {
+        Polyhedron_addVertex(result, poly->vertices.head[i].position);
+    }
+
+    int max_index = 0;
+    int indices[3] = {0};
+    for (int i = 0; i < poly->faces.len; i++) {
+        Face face = vector_get(poly->faces, i);
+        for (int j = 1; j < face.vertexIndices.len - 1; j++) {
+            indices[0] = vector_get(face.vertexIndices, 0);
+            indices[1] = vector_get(face.vertexIndices, j);
+            indices[2] = vector_get(face.vertexIndices, j + 1);
+            Polyhedron_addFace(result, indices, 3);
+        }
+    }
+
+    return result;
+}
+
 Vector3 Face_getCenter_World(Polyhedron* poly, Face* face, Matrix world) {
     Vector3 faceCenter = { 0, 0, 0 };
     for (size_t i = 0; i < face->vertexIndices.len; i++) {

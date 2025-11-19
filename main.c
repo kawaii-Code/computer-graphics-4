@@ -375,6 +375,7 @@ int main(int argc, char **argv) {
             Polyhedron_addFace(p, top_indices, number_of_rotations);
 
             objs[selected]->visible = false;
+            p = Polyhedron_splitToTriangles(p);
             *objs[5] = *scene_obj_create(p, 0, 1, (Vector3) {0, 0, 0}, (Vector3) {0, 0, 0}, (Vector3) {1, 1, 1});
             selected = 5;
             current_poly = p;
@@ -391,8 +392,7 @@ int main(int argc, char **argv) {
             int min_y = epic_data.min_z;
             int max_y = epic_data.max_z;
 
-            /*int indices[4] = {0};*/
-            int indices[3] = { 0 };
+            int indices[3] = {0};
 
             int max_index = 0;
             float step = 0.25f;
@@ -412,21 +412,14 @@ int main(int argc, char **argv) {
                 tx += step;
                 Polyhedron_addVertex(p, (Vector3) { .x = tx, .y = f(tx, ty), .z = ty });
 
-                /*indices[0] = max_index + 0;
-                indices[1] = max_index + 1;
-                indices[2] = max_index + 3;
-                indices[3] = max_index + 2;
-                max_index += 4;
-                Polyhedron_addFace(p, indices, 4);*/
-
                 indices[0] = max_index + 0;
-                indices[1] = max_index + 1;
-                indices[2] = max_index + 2;
+                indices[1] = max_index + 2;
+                indices[2] = max_index + 1;
                 Polyhedron_addFace(p, indices, 3);
 
                 indices[0] = max_index + 1;
-                indices[1] = max_index + 3;
-                indices[2] = max_index + 2;
+                indices[1] = max_index + 2;
+                indices[2] = max_index + 3;
                 Polyhedron_addFace(p, indices, 3);
 
                 max_index += 4;
@@ -439,6 +432,7 @@ int main(int argc, char **argv) {
             }
 
             objs[selected]->visible = false;
+            p = Polyhedron_splitToTriangles(p);
             *objs[5] = *scene_obj_create(p, 0, 1, (Vector3) {0, 0, 0}, (Vector3) {0, 0, 0}, (Vector3) {1, 1, 1});
             selected = 5;
             current_poly = p;
@@ -672,8 +666,7 @@ int main(int argc, char **argv) {
 
             Vector3 v_after = Vector3Transform(v, fullRefl);
 
-            printf("[DEBUG] plane=%c | before=(%.2f, %.2f, %.2f) -> after=(%.2f, %.2f, %.2f)\n",
-                   reflection_plane, v.x, v.y, v.z, v_after.x, v_after.y, v_after.z);
+            printf("[DEBUG] plane=%c | before=(%.2f, %.2f, %.2f) -> after=(%.2f, %.2f, %.2f)\n", reflection_plane, v.x, v.y, v.z, v_after.x, v_after.y, v_after.z);
         }
 
         for (int i = 0; i < 6; i++) {

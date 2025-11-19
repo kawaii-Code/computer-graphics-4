@@ -49,6 +49,7 @@ void Polyhedron_addVertex(Polyhedron* poly, Vector3 position);
 void Polyhedron_addVertexEx(Polyhedron* poly, Vector3 position, Vector3 normal, Vector2 texCoord);
 void Polyhedron_addFace(Polyhedron* poly, int* indices, int count);
 void Polyhedron_updateCenter(Polyhedron* poly);
+Polyhedron *Polyhedron_splitToTriangles(Polyhedron* poly);
 
 Vector3 Face_calculateNormal(Polyhedron* poly, Face* face);
 void Polyhedron_calculateNormals(Polyhedron* poly);

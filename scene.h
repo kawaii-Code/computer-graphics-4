@@ -24,7 +24,7 @@ typedef struct {
 
      float bounding_radius;
 
-     Texture* texture; 
+     TextureZ* texture; 
      bool has_texture;
 } SceneObject;
 
@@ -32,7 +32,7 @@ void scene_obj_free(SceneObject* obj);
 
 SceneObject* scene_obj_create(Polyhedron* mesh, size_t render_layer, bool visible, Vector3 position, Vector3 rotation, Vector3 scale);
 
-void scene_obj_toggle_texture(SceneObject* obj, Texture* texture);
+void scene_obj_toggle_texture(SceneObject* obj, TextureZ* texture);
 
 vector_ptr(SceneObject);
 
