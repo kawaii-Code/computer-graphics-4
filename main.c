@@ -205,6 +205,7 @@ int main(int argc, char **argv) {
             MODE_SCALE,
             MODE_REFLECT,
             MODE_ARBITRARY_ROT,
+            MODE_LIGHT,
         } TransformMode;
 
         static TransformMode current_mode = MODE_NONE;
@@ -527,6 +528,9 @@ int main(int argc, char **argv) {
         Rectangle arb_rotate_btn = {button_x, button_y+4*(button_height+button_spacing), button_width, button_height};
         if (Button(arb_rotate_btn, "Вращение по линии")) current_mode = MODE_ARBITRARY_ROT;
 
+        Rectangle light_btn = {button_x, button_y+5*(button_height+button_spacing), button_width, button_height};
+        if (Button(light_btn, "Источник света")) current_mode = MODE_LIGHT;
+
         Rectangle load_panel = { button_x + 220, button_y, button_width, button_height };
         DrawTextEx(fonts[FONT_MAIN], "Загрузка OBJ:", (Vector2) { load_panel.x + 5, load_panel.y + 5 }, 14, 0, BLACK);
         Rectangle load_file_input = { load_panel.x + 10, load_panel.y + 25, load_panel.width - 20, 25 };
@@ -620,7 +624,7 @@ int main(int argc, char **argv) {
             printf("Switched to chess texture\n");
         }
 
-        Rectangle reset_btn = { button_x, button_y + 5 * (button_height + button_spacing), button_width, button_height };
+        Rectangle reset_btn = { button_x, button_y + 6 * (button_height + button_spacing), button_width, button_height };
         if (Button(reset_btn, "Сбросить всё")) {
             user_translation = (Vector3) {0, 0, 0};
             user_rotation = (Vector3) {0, 0, 0};
@@ -632,7 +636,7 @@ int main(int argc, char **argv) {
         }
 
         int panel_x = 240;
-        int panel_y = button_y + 6 * (button_height + button_spacing) + 10;
+        int panel_y = button_y + 7 * (button_height + button_spacing) + 10;
         int panel_width = 300;
         int panel_height = 200;
 
@@ -743,6 +747,26 @@ int main(int argc, char **argv) {
             GuiSliderBar((Rectangle){panel_x+150,param_y,120,20},"-5","5",&line_p2.z,-20,20);
             param_y+=25;
             GuiSliderBar((Rectangle){panel_x+20,param_y,250,20},"0","360",&line_angle,0,360);
+        } break;
+        case MODE_LIGHT: {
+            DrawTextEx(fonts[FONT_MAIN], "Положение источника света:", (Vector2){panel_x+10, param_y}, 16, 0, BLACK);
+            param_y += 25;
+
+            DrawTextEx(fonts[FONT_MAIN], "X:", (Vector2){panel_x+10, param_y}, 14, 0, BLACK);
+            GuiSliderBar((Rectangle){panel_x+30, param_y, 200, 20}, "-20", "20", &scene->light.position.x, -20.0f, 20.0f);
+            param_y += 25;
+
+            DrawTextEx(fonts[FONT_MAIN], "Y:", (Vector2){panel_x+10, param_y}, 14, 0, BLACK);
+            GuiSliderBar((Rectangle){panel_x+30, param_y, 200, 20}, "-20", "20", &scene->light.position.y, -20.0f, 20.0f);
+            param_y += 25;
+
+            DrawTextEx(fonts[FONT_MAIN], "Z:", (Vector2){panel_x+10, param_y}, 14, 0, BLACK);
+            GuiSliderBar((Rectangle){panel_x+30, param_y, 200, 20}, "-20", "20", &scene->light.position.z, -20.0f, 20.0f);
+            param_y += 30;
+
+            DrawTextEx(fonts[FONT_MAIN], "Интенсивность:", (Vector2){panel_x+10, param_y}, 14, 0, BLACK);
+            param_y += 20;
+            GuiSliderBar((Rectangle){panel_x+30, param_y, 200, 20}, "0.0", "2.0", &scene->light.intensity, 0.0f, 2.0f);
         } break;
         case MODE_NONE:
         default: break;

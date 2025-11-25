@@ -75,6 +75,36 @@ bool point_in_triangle(Vector3 bary) {
     return bary.x >= 0 && bary.y >= 0 && bary.z >= 0;
 }
 
+Vector3 TransformNormal(Vector3 normal, Matrix mat) {
+    Vector3 result = {
+        normal.x * mat.m0 + normal.y * mat.m4 + normal.z * mat.m8,
+        normal.x * mat.m1 + normal.y * mat.m5 + normal.z * mat.m9,
+        normal.x * mat.m2 + normal.y * mat.m6 + normal.z * mat.m10
+    };
+    return result;
+}
+
+Color calculate_lambert_lighting(Vector3 world_pos, Vector3 world_normal, Color base_color, Light* light) {
+    Vector3 light_dir = Vector3Normalize(Vector3Subtract(light->position, world_pos));
+
+    Vector3 normal = Vector3Normalize(world_normal);
+
+    float diffuse = fmaxf(Vector3DotProduct(normal, light_dir), 0.0f);
+
+    diffuse *= light->intensity;
+
+    float ambient = 0.2f;
+    float total_light = fminf(ambient + diffuse, 1.0f);
+
+    Color result;
+    result.r = (unsigned char)(base_color.r * total_light);
+    result.g = (unsigned char)(base_color.g * total_light);
+    result.b = (unsigned char)(base_color.b * total_light);
+    result.a = base_color.a;
+
+    return result;
+}
+
 
 // Из второй лабы. А как нам быть, в наше то время?
 static void DrawBrush(ZBuffer *zbuffer, int cx, int cy, float cz) {
@@ -155,8 +185,16 @@ static void plotLine(ZBuffer *zbuffer, Vector3 beg, Vector3 end) {
     }
 }
 
+void draw_triangle_gouraud(ZBuffer *zbuffer, Vector3 a, Vector3 b, Vector3 c,
+                           Color color_a, Color color_b, Color color_c);
 
 void draw_triangle(ZBuffer *zbuffer, Vector3 a, Vector3 b, Vector3 c, Color color) {
+    draw_triangle_gouraud(zbuffer, a, b, c, color, color, color);
+}
+
+// Шейдинг Гуро - интерполяция цветов вершин
+void draw_triangle_gouraud(ZBuffer *zbuffer, Vector3 a, Vector3 b, Vector3 c,
+                           Color color_a, Color color_b, Color color_c) {
     Vector2 v1 = (Vector2) { .x = a.x, .y = a.y };
     Vector2 v2 = (Vector2) { .x = b.x, .y = b.y };
     Vector2 v3 = (Vector2) { .x = c.x, .y = c.y };
@@ -172,7 +210,12 @@ void draw_triangle(ZBuffer *zbuffer, Vector3 a, Vector3 b, Vector3 c, Color colo
             if (point_in_triangle(bary)) {
                 float z = bary.x * a.z + bary.y * b.z + bary.z * c.z;
                 if (z < zbuffer->buffer[y * zbuffer->width + x]) {
-                    Color pixel_color = color;
+                    Color pixel_color;
+                    pixel_color.r = (unsigned char)(bary.x * color_a.r + bary.y * color_b.r + bary.z * color_c.r);
+                    pixel_color.g = (unsigned char)(bary.x * color_a.g + bary.y * color_b.g + bary.z * color_c.g);
+                    pixel_color.b = (unsigned char)(bary.x * color_a.b + bary.y * color_b.b + bary.z * color_c.b);
+                    pixel_color.a = (unsigned char)(bary.x * color_a.a + bary.y * color_b.a + bary.z * color_c.a);
+
                     DrawPixel(x, y, pixel_color);
                     zbuffer->buffer[y * zbuffer->width + x] = z;
                 }
@@ -262,14 +305,42 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             }
         }
         else {
+            // Вычисляем цвета вершин по модели Ламберта для шейдинга Гуро
+            Color *vertexColors = calloc(indices.len, sizeof(Color));
+            for (size_t v = 0; v < indices.len; v++) {
+                Vector3 worldVert = worldVerts->head[indices.head[v]];
+                Vector3 worldNormal = TransformNormal(obj->mesh->vertices.head[indices.head[v]].normal, worldMatrix);
+
+                float normalLength = Vector3Length(worldNormal);
+                if (normalLength > 0.0001f) {
+                    worldNormal = Vector3Normalize(worldNormal);
+                } else {
+                    // Если нормаль нулевая, вычисляем нормаль грани
+                    Vector3 v0 = worldVerts->head[indices.head[0]];
+                    Vector3 v1 = worldVerts->head[indices.head[(v + 1) % indices.len]];
+                    Vector3 v2 = worldVerts->head[indices.head[(v + 2) % indices.len]];
+                    Vector3 edge1 = Vector3Subtract(v1, v0);
+                    Vector3 edge2 = Vector3Subtract(v2, v0);
+                    worldNormal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
+                }
+
+                vertexColors[v] = calculate_lambert_lighting(worldVert, worldNormal, obj->mesh->color, &scene->light);
+            }
+
+            // Рисуем контуры
             for (size_t v = 0; v < indices.len; v++) {
                 int next = (v + 1) % indices.len;
                 plotLine(&scene->zbuffer, screenVerts[v], screenVerts[next]);
             }
 
-            for (int i = 0; i < indices.len - 1; i++) {
-                draw_triangle(&scene->zbuffer, screenVerts[0], screenVerts[i], screenVerts[i + 1], obj->mesh->color);
+            // Рисуем треугольники с шейдингом Гуро (интерполяция цветов вершин)
+            for (int i = 1; i < indices.len - 1; i++) {
+                draw_triangle_gouraud(&scene->zbuffer,
+                    screenVerts[0], screenVerts[i], screenVerts[i + 1],
+                    vertexColors[0], vertexColors[i], vertexColors[i + 1]);
             }
+
+            free(vertexColors);
         }
         free(screenVerts);
     }
@@ -318,6 +389,10 @@ Scene* scene_create(CameraZ* camera) {
     Scene* scene = calloc(1, sizeof(Scene));
     scene->camera = camera;
 
+    scene->light.position = (Vector3){ 5.0f, 5.0f, 5.0f };
+    scene->light.color = WHITE;
+    scene->light.intensity = 1.0f;
+
     return scene;
 }
 
@@ -341,11 +416,26 @@ void draw_coordinate_axes(CameraZ* camera) {
     DrawText("Z", z_axis.x + 5, z_axis.y, 10, BLUE);
 }
 
+void draw_light_source(Light* light, CameraZ* camera) {
+    Vector3 screen_pos = cameraz_world_to_screen(light->position, camera);
+
+    Vector2 light_screen = { screen_pos.x, screen_pos.y };
+    DrawCircleV(light_screen, 8, YELLOW);
+    DrawCircleV(light_screen, 6, light->color);
+
+    DrawLineV((Vector2){light_screen.x - 10, light_screen.y},
+              (Vector2){light_screen.x + 10, light_screen.y}, YELLOW);
+    DrawLineV((Vector2){light_screen.x, light_screen.y - 10},
+              (Vector2){light_screen.x, light_screen.y + 10}, YELLOW);
+}
+
 void scene_draw(Scene* scene) {
     VECTOR_PTR_TYPE(SceneObject) objs = scene->objs;
     CameraZ* camera = scene->camera;
 
     draw_coordinate_axes(camera);
+
+    draw_light_source(&scene->light, camera);
 
     for (int i = 0; i < scene->zbuffer.width * scene->zbuffer.height; i++) {
         scene->zbuffer.buffer[i] = Z_BUFFER_MAX;

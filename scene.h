@@ -43,9 +43,16 @@ typedef struct {
 } ZBuffer;
 
 typedef struct {
+     Vector3 position;
+     Color color;
+     float intensity;
+} Light;
+
+typedef struct {
      VECTOR_PTR_TYPE(SceneObject) objs;
      CameraZ* camera;
      ZBuffer zbuffer;
+     Light light;
 } Scene;
 
 void scene_obj_draw(Scene* scene, SceneObject* obj);
@@ -60,5 +67,9 @@ void scene_update(Scene* scene);
 
 void scene_add_obj(Scene* scene, SceneObject* obj);
 void scene_remove_obj(Scene* scene, size_t index);
+
+Vector3 TransformNormal(Vector3 normal, Matrix mat);
+Color calculate_lambert_lighting(Vector3 world_pos, Vector3 world_normal, Color base_color, Light* light);
+void draw_light_source(Light* light, CameraZ* camera);
 
 #endif //SCENE_H
