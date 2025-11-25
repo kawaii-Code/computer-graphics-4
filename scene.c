@@ -224,45 +224,54 @@ void draw_triangle_gouraud(ZBuffer *zbuffer, Vector3 a, Vector3 b, Vector3 c,
     }
 }
 
-void draw_textured_triangle(ZBuffer* zbuffer, Vector3 a_pos, Vector2 a_tex,
-    Vector3 b_pos, Vector2 b_tex, Vector3 c_pos, Vector2 c_tex, TextureZ* tex) {
+void draw_textured_triangle(ZBuffer* zbuffer,
+    Vector3 a_pos, Vector2 a_tex,
+    Vector3 b_pos, Vector2 b_tex,
+    Vector3 c_pos, Vector2 c_tex,
+    TextureZ* tex) {
 
-    Vector2 v1 = (Vector2){ .x = a_pos.x, .y = a_pos.y };
-    Vector2 v2 = (Vector2){ .x = b_pos.x, .y = b_pos.y };
-    Vector2 v3 = (Vector2){ .x = c_pos.x, .y = c_pos.y };
+    Vector2 v1 = { a_pos.x, a_pos.y };
+    Vector2 v2 = { b_pos.x, b_pos.y };
+    Vector2 v3 = { c_pos.x, c_pos.y };
 
     int min_x, max_x, min_y, max_y;
     get_triangle_bounding_box(v1, v2, v3, &min_x, &max_x, &min_y, &max_y);
 
+    min_x = max(min_x, 0);
+    max_x = min(max_x, zbuffer->width - 1);
+    min_y = max(min_y, 0);
+    max_y = min(max_y, zbuffer->height - 1);
+
     for (int y = min_y; y <= max_y; y++) {
         for (int x = min_x; x <= max_x; x++) {
-            Vector2 p = { (float)x, (float)y };
+            Vector2 p = { (float)x + 0.5f, (float)y + 0.5f };
             Vector3 bary = barycentric_coordinates(p, v1, v2, v3);
 
-            if (point_in_triangle(bary)) {
-                float z = bary.x * a_pos.z + bary.y * b_pos.z + bary.z * c_pos.z;
+            if (bary.x >= 0 && bary.y >= 0 && bary.z >= 0) {
+                float inv_z_A = 1.0f / a_pos.z;
+                float inv_z_B = 1.0f / b_pos.z;
+                float inv_z_C = 1.0f / c_pos.z;
 
-                // Интерполируем обратную глубину
-                float w = bary.x * (1.0f / a_pos.z) +
-                    bary.y * (1.0f / b_pos.z) +
-                    bary.z * (1.0f / c_pos.z);
+                float depth = 1.0f / (bary.x * inv_z_A + bary.y * inv_z_B + bary.z * inv_z_C);
 
                 // Интерполируем u/z и v/z
-                float u_over_w = bary.x * (a_tex.x / a_pos.z) +
-                    bary.y * (b_tex.x / b_pos.z) +
-                    bary.z * (c_tex.x / c_pos.z);
-                float v_over_w = bary.x * (a_tex.y / a_pos.z) +
-                    bary.y * (b_tex.y / b_pos.z) +
-                    bary.z * (c_tex.y / c_pos.z);
+                float u_over_z = bary.x * (a_tex.x * inv_z_A) +
+                    bary.y * (b_tex.x * inv_z_B) +
+                    bary.z * (c_tex.x * inv_z_C);
+                float v_over_z = bary.x * (a_tex.y * inv_z_A) +
+                    bary.y * (b_tex.y * inv_z_B) +
+                    bary.z * (c_tex.y * inv_z_C);
 
                 // Восстанавливаем u, v
-                float u = u_over_w / w;
-                float v = v_over_w / w;
+                float u = u_over_z * depth;
+                float v = v_over_z * depth;
 
-                if (z < zbuffer->buffer[y * zbuffer->width + x]) {
+                v = 1.0f - v;  // Инвертируем V
+
+                if (depth < zbuffer->buffer[y * zbuffer->width + x]) {
                     Color pixel_color = Texture_sample(tex, u, v);
                     DrawPixel(x, y, pixel_color);
-                    zbuffer->buffer[y * zbuffer->width + x] = z;
+                    zbuffer->buffer[y * zbuffer->width + x] = depth;
                 }
             }
         }

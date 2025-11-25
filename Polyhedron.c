@@ -815,8 +815,8 @@ Color Texture_sample(TextureZ* tex, float u, float v) {
     if (u < 0) u += 1.0f;
     if (v < 0) v += 1.0f;
 
-    int x = (int)(u * tex->width);
-    int y = (int)(v * tex->height);
+    int x = (int)(u * (tex->width - 1) + 0.5f);
+    int y = (int)(v * (tex->height - 1) + 0.5f);
 
     x = Clamp(x, 0, tex->width - 1);
     y = Clamp(y, 0, tex->height - 1);
@@ -824,10 +824,10 @@ Color Texture_sample(TextureZ* tex, float u, float v) {
     unsigned int pixel = tex->pixels[y * tex->width + x];
 
     return (Color) {
-        .r = (pixel >> 16) & 0xFF,
-            .g = (pixel >> 8) & 0xFF,
-            .b = pixel & 0xFF,
-            .a = 255
+        .a = (pixel >> 24) & 0xFF,  
+            .r = (pixel >> 16) & 0xFF,  
+            .g = (pixel >> 8) & 0xFF,     
+            .b = pixel & 0xFF          
     };
 }
 
@@ -839,20 +839,10 @@ TextureZ* load_texture_from_file(const char* filename) {
     }
 
     TextureZ* tex = malloc(sizeof(TextureZ));
-    if (!tex) {
-        UnloadImage(image);
-        return NULL;
-    }
 
     tex->width = image.width;
     tex->height = image.height;
     tex->pixels = malloc(tex->width * tex->height * sizeof(unsigned int));
-
-    if (!tex->pixels) {
-        free(tex);
-        UnloadImage(image);
-        return NULL;
-    }
 
     for (int y = 0; y < tex->height; y++) {
         for (int x = 0; x < tex->width; x++) {
