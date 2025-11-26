@@ -105,6 +105,22 @@ Color calculate_lambert_lighting(Vector3 world_pos, Vector3 world_normal, Color 
     return result;
 }
 
+float calculate_phong_lighting(Vector3 position, Vector3 normal, Vector3 camera, Light *light_source) {
+    Vector3 view = Vector3Normalize(Vector3Subtract(camera, position));
+    Vector3 light = Vector3Normalize(Vector3Subtract(light_source->position, position));
+    normal = Vector3Normalize(normal);
+
+    float dot = Vector3DotProduct(normal, Vector3Negate(light));
+    Vector3 reflected_light = Vector3Subtract(light, Vector3Scale(normal, 2 * dot));
+
+    float diffuse = light_source->intensity * 0.5f * fmaxf(Vector3DotProduct(normal, light), 0.0f);
+    float specular = light_source->intensity * 0.2f * fmaxf(Vector3DotProduct(view, reflected_light), 0.0f);
+    float ambient = 0.2f;
+
+    float total_light = fminf(ambient + diffuse + specular, 1.0f);
+    return total_light;
+}
+
 float calculate_lambert_lighting2(Vector3 world_pos, Vector3 world_normal, Color base_color, Light* light) {
     Vector3 light_dir = Vector3Normalize(Vector3Subtract(light->position, world_pos));
 
@@ -238,7 +254,7 @@ void draw_triangle_gouraud(ZBuffer *zbuffer, Vector3 a, Vector3 b, Vector3 c,
     }
 }
 
-void draw_textured_triangle(ZBuffer* zbuffer,
+void draw_textured_triangle_with_gouraud_lighting(ZBuffer* zbuffer,
     Vector3 a_pos, Vector2 a_tex, float light_a,
     Vector3 b_pos, Vector2 b_tex, float light_b,
     Vector3 c_pos, Vector2 c_tex, float light_c,
@@ -297,6 +313,77 @@ void draw_textured_triangle(ZBuffer* zbuffer,
     }
 }
 
+void draw_textured_triangle_with_phong_lighting(ZBuffer *zbuffer,
+                Vector3 a_pos, Vector2 a_tex, Vector3 a_world, Vector3 a_normal,
+                Vector3 b_pos, Vector2 b_tex, Vector3 b_world, Vector3 b_normal,
+                Vector3 c_pos, Vector2 c_tex, Vector3 c_world, Vector3 c_normal,
+                TextureZ *tex, Light *light_source, Vector3 camera)
+{
+    Vector2 v1 = { a_pos.x, a_pos.y };
+    Vector2 v2 = { b_pos.x, b_pos.y };
+    Vector2 v3 = { c_pos.x, c_pos.y };
+
+    int min_x, max_x, min_y, max_y;
+    get_triangle_bounding_box(v1, v2, v3, &min_x, &max_x, &min_y, &max_y);
+
+    min_x = fmax(min_x, 0);
+    max_x = fmin(max_x, zbuffer->width - 1);
+    min_y = fmax(min_y, 0);
+    max_y = fmin(max_y, zbuffer->height - 1);
+
+    for (int y = min_y; y <= max_y; y++) {
+        for (int x = min_x; x <= max_x; x++) {
+            Vector2 p = { (float)x + 0.5f, (float)y + 0.5f };
+            Vector3 bary = barycentric_coordinates(p, v1, v2, v3);
+
+            if (bary.x >= 0 && bary.y >= 0 && bary.z >= 0) {
+                float inv_z_A = 1.0f / a_pos.z;
+                float inv_z_B = 1.0f / b_pos.z;
+                float inv_z_C = 1.0f / c_pos.z;
+
+                float depth = 1.0f / (bary.x * inv_z_A + bary.y * inv_z_B + bary.z * inv_z_C);
+
+                // Интерполируем u/z и v/z
+                float u_over_z = bary.x * (a_tex.x * inv_z_A) +
+                    bary.y * (b_tex.x * inv_z_B) +
+                    bary.z * (c_tex.x * inv_z_C);
+                float v_over_z = bary.x * (a_tex.y * inv_z_A) +
+                    bary.y * (b_tex.y * inv_z_B) +
+                    bary.z * (c_tex.y * inv_z_C);
+
+                // Восстанавливаем u, v
+                float u = u_over_z * depth;
+                float v = v_over_z * depth;
+
+                v = 1.0f - v;  // Инвертируем V
+
+                if (depth < zbuffer->buffer[y * zbuffer->width + x]) {
+                    Color pixel_color = Texture_sample(tex, u, v);
+
+                    Vector3 normal;
+                    normal.x = bary.x * a_normal.x + bary.y * b_normal.x + bary.z * c_normal.x;
+                    normal.y = bary.x * a_normal.y + bary.y * b_normal.y + bary.z * c_normal.y;
+                    normal.z = bary.x * a_normal.z + bary.y * b_normal.z + bary.z * c_normal.z;
+
+                    Vector3 worldpos;
+                    worldpos.x = bary.x * a_world.x + bary.y * b_world.x + bary.z * c_world.x;
+                    worldpos.y = bary.x * a_world.y + bary.y * b_world.y + bary.z * c_world.y;
+                    worldpos.z = bary.x * a_world.z + bary.y * b_world.z + bary.z * c_world.z;
+
+                    float light = calculate_phong_lighting(worldpos, normal, camera, light_source);
+
+                    pixel_color.r *= light;
+                    pixel_color.g *= light;
+                    pixel_color.b *= light;
+
+                    DrawPixel(x, y, pixel_color);
+                    zbuffer->buffer[y * zbuffer->width + x] = depth;
+                }
+            }
+        }
+    }
+}
+
 void scene_obj_draw(Scene* scene, SceneObject* obj) {
     Matrix worldMatrix = CreateTransformMatrix(obj->mesh, obj->position, obj->rotation, obj->scale, obj->reflection_plane, obj->line_p1, obj->line_p2, obj->line_angle);
 
@@ -316,13 +403,17 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
 
         Vector3 *screenVerts = calloc(1, sizeof(Vector3) * indices.len);
         Vector2 texCoords[8];
+        Vector3 world_positions[8];
+        Vector3 normals[8];
         for (size_t v = 0; v < indices.len; v++) {
             Vector3 worldVert = worldVerts->head[indices.head[v]];
             screenVerts[v] = cameraz_world_to_screen(worldVert, scene->camera);
             texCoords[v] = obj->mesh->vertices.head[indices.head[v]].texCoord;
+            world_positions[v] = worldVert;
+            normals[v] = obj->mesh->vertices.head[indices.head[v]].normal;
         }
 
-        if (true) {
+        if (scene->lighting_mode == LIGHTING_GOURAUD) {
             float lights[3];
             for (int v = 0; v < indices.len; v++) {
                 Vector3 worldVert = worldVerts->head[indices.head[v]];
@@ -346,51 +437,58 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
 
             // Текстурированная отрисовка - веером из первой вершины
             for (int i = 1; i < indices.len - 1; i++) {
-                draw_textured_triangle(&scene->zbuffer,
+                draw_textured_triangle_with_gouraud_lighting(&scene->zbuffer,
                     screenVerts[0], texCoords[0], lights[0],
                     screenVerts[i], texCoords[i], lights[i],
                     screenVerts[i + 1], texCoords[i + 1], lights[i + 1],
                     obj->texture);
             }
-        }
-        else {
-            // Вычисляем цвета вершин по модели Ламберта для шейдинга Гуро
-            Color *vertexColors = calloc(indices.len, sizeof(Color));
-            for (size_t v = 0; v < indices.len; v++) {
-                Vector3 worldVert = worldVerts->head[indices.head[v]];
-                Vector3 worldNormal = TransformNormal(obj->mesh->vertices.head[indices.head[v]].normal, worldMatrix);
-
-                float normalLength = Vector3Length(worldNormal);
-                if (normalLength > 0.0001f) {
-                    worldNormal = Vector3Normalize(worldNormal);
-                } else {
-                    // Если нормаль нулевая, вычисляем нормаль грани
-                    Vector3 v0 = worldVerts->head[indices.head[0]];
-                    Vector3 v1 = worldVerts->head[indices.head[(v + 1) % indices.len]];
-                    Vector3 v2 = worldVerts->head[indices.head[(v + 2) % indices.len]];
-                    Vector3 edge1 = Vector3Subtract(v1, v0);
-                    Vector3 edge2 = Vector3Subtract(v2, v0);
-                    worldNormal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
-                }
-
-                vertexColors[v] = calculate_lambert_lighting(worldVert, worldNormal, obj->mesh->color, &scene->light);
-            }
-
-            // Рисуем контуры
-            for (size_t v = 0; v < indices.len; v++) {
-                int next = (v + 1) % indices.len;
-                plotLine(&scene->zbuffer, screenVerts[v], screenVerts[next]);
-            }
-
-            // Рисуем треугольники с шейдингом Гуро (интерполяция цветов вершин)
+        } else {
             for (int i = 1; i < indices.len - 1; i++) {
-                draw_triangle_gouraud(&scene->zbuffer,
-                    screenVerts[0], screenVerts[i], screenVerts[i + 1],
-                    vertexColors[0], vertexColors[i], vertexColors[i + 1]);
+                draw_textured_triangle_with_phong_lighting(&scene->zbuffer,
+                    screenVerts[0], texCoords[0], world_positions[0], normals[0],
+                    screenVerts[i], texCoords[i], world_positions[i], normals[1],
+                    screenVerts[i + 1], texCoords[i + 1], world_positions[i + 1], normals[2],
+                    obj->texture, &scene->light, scene->camera->position);
             }
-
-            free(vertexColors);
         }
+
+        //// Вычисляем цвета вершин по модели Ламберта для шейдинга Гуро
+        //Color *vertexColors = calloc(indices.len, sizeof(Color));
+        //for (size_t v = 0; v < indices.len; v++) {
+        //    Vector3 worldVert = worldVerts->head[indices.head[v]];
+        //    Vector3 worldNormal = TransformNormal(obj->mesh->vertices.head[indices.head[v]].normal, worldMatrix);
+
+        //    float normalLength = Vector3Length(worldNormal);
+        //    if (normalLength > 0.0001f) {
+        //        worldNormal = Vector3Normalize(worldNormal);
+        //    } else {
+        //        // Если нормаль нулевая, вычисляем нормаль грани
+        //        Vector3 v0 = worldVerts->head[indices.head[0]];
+        //        Vector3 v1 = worldVerts->head[indices.head[(v + 1) % indices.len]];
+        //        Vector3 v2 = worldVerts->head[indices.head[(v + 2) % indices.len]];
+        //        Vector3 edge1 = Vector3Subtract(v1, v0);
+        //        Vector3 edge2 = Vector3Subtract(v2, v0);
+        //        worldNormal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
+        //    }
+
+        //    vertexColors[v] = calculate_lambert_lighting(worldVert, worldNormal, obj->mesh->color, &scene->light);
+        //}
+
+        //// Рисуем контуры
+        //for (size_t v = 0; v < indices.len; v++) {
+        //    int next = (v + 1) % indices.len;
+        //    plotLine(&scene->zbuffer, screenVerts[v], screenVerts[next]);
+        //}
+
+        //// Рисуем треугольники с шейдингом Гуро (интерполяция цветов вершин)
+        //for (int i = 1; i < indices.len - 1; i++) {
+        //    draw_triangle_gouraud(&scene->zbuffer,
+        //        screenVerts[0], screenVerts[i], screenVerts[i + 1],
+        //        vertexColors[0], vertexColors[i], vertexColors[i + 1]);
+        //}
+
+        //free(vertexColors);
         free(screenVerts);
     }
 

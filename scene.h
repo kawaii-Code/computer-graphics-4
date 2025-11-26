@@ -5,6 +5,11 @@
 #include "vector.h"
 #include "camera.h"
 
+typedef enum {
+    LIGHTING_GOURAUD,
+    LIGHTING_PHONG,
+} LightingMode;
+
 // TODO
 // Сделать для любых объектов и определить эти самые объекты
 // Перенести смещение и все действия над объектами сюда
@@ -53,6 +58,7 @@ typedef struct {
      CameraZ* camera;
      ZBuffer zbuffer;
      Light light;
+     int lighting_mode;
 } Scene;
 
 void scene_obj_draw(Scene* scene, SceneObject* obj);

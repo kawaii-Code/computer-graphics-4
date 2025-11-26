@@ -256,6 +256,9 @@ int main(int argc, char **argv) {
                 camera->position.y -= camera_speed;
                 update_camera = true;
             }
+            if (IsKeyPressed(KEY_L)) {
+                scene->lighting_mode = 1 - scene->lighting_mode;
+            }
         }
         // Для изометрической проекции - обычное движение
         else if (camera->projection_type == ISOMETRIC_TYPE) {
