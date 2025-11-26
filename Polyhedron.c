@@ -1,4 +1,5 @@
-﻿#include "Polyhedron.h"
+﻿#include <assert.h>
+#include "Polyhedron.h"
 #include "camera.h"
 
 void Polyhedron_init(Polyhedron* poly) {
@@ -119,7 +120,12 @@ Polyhedron *Polyhedron_splitToTriangles(Polyhedron* poly) {
     result->color = poly->color;
 
     for (int i = 0; i < poly->vertices.len; i++) {
-        Polyhedron_addVertex(result, poly->vertices.head[i].position);
+        Polyhedron_addVertexEx(
+            result,
+            poly->vertices.head[i].position,
+            poly->vertices.head[i].normal,
+            poly->vertices.head[i].texCoord
+        );
     }
 
     int max_index = 0;
@@ -808,7 +814,9 @@ TextureZ* Texture_sh() {
 }
 
 Color Texture_sample(TextureZ* tex, float u, float v) {
-    if (!tex || !tex->pixels) return WHITE;
+    if (!tex || !tex->pixels) {
+        return WHITE;
+    }
 
     u = fmodf(u, 1.0f);
     v = fmodf(v, 1.0f);

@@ -542,6 +542,8 @@ int main(int argc, char **argv) {
             Polyhedron* new_poly = Polyhedron_create();
 
             if (Polyhedron_loadFromObj(new_poly, loadFilePath)) {
+                new_poly = Polyhedron_splitToTriangles(new_poly);
+
                 printf("Модель успешно загружена из %s\n", loadFilePath);
 
                 if (objs[5]->mesh != NULL) {
@@ -796,7 +798,7 @@ int main(int argc, char **argv) {
         for (int i = 0; i < 6; i++) {
             objs[i]->visible = false;
         }
-        objs[0]->visible = true;
+        //objs[selected]->texture = global_texture;
         objs[selected]->visible = true;
         objs[selected]->position = user_translation;
         objs[selected]->rotation = (Vector3){user_rotation.x, user_rotation.y, user_rotation.z};

@@ -105,6 +105,20 @@ Color calculate_lambert_lighting(Vector3 world_pos, Vector3 world_normal, Color 
     return result;
 }
 
+float calculate_lambert_lighting2(Vector3 world_pos, Vector3 world_normal, Color base_color, Light* light) {
+    Vector3 light_dir = Vector3Normalize(Vector3Subtract(light->position, world_pos));
+
+    Vector3 normal = Vector3Normalize(world_normal);
+
+    float diffuse = fmaxf(Vector3DotProduct(normal, light_dir), 0.0f);
+
+    diffuse *= light->intensity;
+
+    float ambient = 0.2f;
+    float total_light = fminf(ambient + diffuse, 1.0f);
+
+    return total_light;
+}
 
 // Из второй лабы. А как нам быть, в наше то время?
 static void DrawBrush(ZBuffer *zbuffer, int cx, int cy, float cz) {
@@ -225,9 +239,9 @@ void draw_triangle_gouraud(ZBuffer *zbuffer, Vector3 a, Vector3 b, Vector3 c,
 }
 
 void draw_textured_triangle(ZBuffer* zbuffer,
-    Vector3 a_pos, Vector2 a_tex,
-    Vector3 b_pos, Vector2 b_tex,
-    Vector3 c_pos, Vector2 c_tex,
+    Vector3 a_pos, Vector2 a_tex, float light_a,
+    Vector3 b_pos, Vector2 b_tex, float light_b,
+    Vector3 c_pos, Vector2 c_tex, float light_c,
     TextureZ* tex) {
 
     Vector2 v1 = { a_pos.x, a_pos.y };
@@ -237,10 +251,10 @@ void draw_textured_triangle(ZBuffer* zbuffer,
     int min_x, max_x, min_y, max_y;
     get_triangle_bounding_box(v1, v2, v3, &min_x, &max_x, &min_y, &max_y);
 
-    min_x = max(min_x, 0);
-    max_x = min(max_x, zbuffer->width - 1);
-    min_y = max(min_y, 0);
-    max_y = min(max_y, zbuffer->height - 1);
+    min_x = fmax(min_x, 0);
+    max_x = fmin(max_x, zbuffer->width - 1);
+    min_y = fmax(min_y, 0);
+    max_y = fmin(max_y, zbuffer->height - 1);
 
     for (int y = min_y; y <= max_y; y++) {
         for (int x = min_x; x <= max_x; x++) {
@@ -270,6 +284,11 @@ void draw_textured_triangle(ZBuffer* zbuffer,
 
                 if (depth < zbuffer->buffer[y * zbuffer->width + x]) {
                     Color pixel_color = Texture_sample(tex, u, v);
+
+                    pixel_color.r *= bary.x * light_a + bary.y * light_b + bary.z * light_c;
+                    pixel_color.g *= bary.x * light_a + bary.y * light_b + bary.z * light_c;
+                    pixel_color.b *= bary.x * light_a + bary.y * light_b + bary.z * light_c;
+
                     DrawPixel(x, y, pixel_color);
                     zbuffer->buffer[y * zbuffer->width + x] = depth;
                 }
@@ -303,13 +322,34 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             texCoords[v] = obj->mesh->vertices.head[indices.head[v]].texCoord;
         }
 
-        if (obj->has_texture) {
+        if (true) {
+            float lights[3];
+            for (int v = 0; v < indices.len; v++) {
+                Vector3 worldVert = worldVerts->head[indices.head[v]];
+                Vector3 worldNormal = TransformNormal(obj->mesh->vertices.head[indices.head[v]].normal, worldMatrix);
+
+                float normalLength = Vector3Length(worldNormal);
+                if (normalLength > 0.0001f) {
+                    worldNormal = Vector3Normalize(worldNormal);
+                } else {
+                    // Если нормаль нулевая, вычисляем нормаль грани
+                    Vector3 v0 = worldVerts->head[indices.head[0]];
+                    Vector3 v1 = worldVerts->head[indices.head[(v + 1) % indices.len]];
+                    Vector3 v2 = worldVerts->head[indices.head[(v + 2) % indices.len]];
+                    Vector3 edge1 = Vector3Subtract(v1, v0);
+                    Vector3 edge2 = Vector3Subtract(v2, v0);
+                    worldNormal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
+                }
+
+                lights[v] = calculate_lambert_lighting2(worldVert, worldNormal, obj->mesh->color, &scene->light);
+            }
+
             // Текстурированная отрисовка - веером из первой вершины
             for (int i = 1; i < indices.len - 1; i++) {
                 draw_textured_triangle(&scene->zbuffer,
-                    screenVerts[0], texCoords[0],
-                    screenVerts[i], texCoords[i],
-                    screenVerts[i + 1], texCoords[i + 1],
+                    screenVerts[0], texCoords[0], lights[0],
+                    screenVerts[i], texCoords[i], lights[i],
+                    screenVerts[i + 1], texCoords[i + 1], lights[i + 1],
                     obj->texture);
             }
         }
