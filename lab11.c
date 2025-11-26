@@ -9,6 +9,7 @@
 
 #include "module3.h"
 
+#define PI 3.141592653589793
 
 GradientVertex triangle_vertices[] = {
     { { -1.0f, -0.7f }, { 1.0f, 0.0f, 0.0f } },
@@ -75,15 +76,15 @@ int main() {
     }
 
     GradientVertex pentagon_vertices[5] = {0};
-    float angle_step = (2 * M_PI) / 5;
+    float angle_step = (2 * PI) / 5;
     for (int i = 0; i < 5; i++) {
         pentagon_vertices[i].position = (Vector2) {
-            .x = 0.9f * cosf(i * angle_step + M_PI / 2),
-            .y = 0.9f * sinf(i * angle_step + M_PI / 2),
+            .x = 0.9f * cosf(i * angle_step + PI / 2),
+            .y = 0.9f * sinf(i * angle_step + PI / 2),
         };
-        pentagon_vertices[i].color.r = cosf(i * angle_step + M_PI / 2);
-        pentagon_vertices[i].color.g = sinf(i * angle_step + M_PI / 2);
-        pentagon_vertices[i].color.b = sinf(i * angle_step + M_PI / 2);
+        pentagon_vertices[i].color.r = cosf(i * angle_step + PI / 2);
+        pentagon_vertices[i].color.g = sinf(i * angle_step + PI / 2);
+        pentagon_vertices[i].color.b = sinf(i * angle_step + PI / 2);
     }
 
     glGenBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);

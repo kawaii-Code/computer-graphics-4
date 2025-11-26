@@ -4,6 +4,8 @@
 char *read_entire_file(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
+        int error = errno; 
+        printf("%d\n", error);
         return NULL;
     }
 
