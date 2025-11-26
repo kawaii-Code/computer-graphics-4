@@ -1,8 +1,7 @@
-build/*
+build/
 
-cmake-build-*
-
-third_party/lib/*
+*.a
+*.lib
 
 # IDE and editor settings
 .vscode/
