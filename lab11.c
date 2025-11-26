@@ -7,110 +7,10 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-
-#define ARRAY_LEN(a) (sizeof(a) / sizeof(*(a)))
-
-
-enum {
-    MODE_CONSTANT_FLAT_COLOR = 0,
-    MODE_UNIFORM_FLAT_COLOR,
-    MODE_GRADIENT,
-};
-
-enum {
-    TRIANGLE = 0,
-    RECTANGLE,
-    FAN,
-    PENTAGON,
-    VERTEX_BUFFERS_COUNT,
-};
-
-enum {
-    TRIANGLE_VAO = 0,
-    RECTANGLE_VAO,
-    FAN_VAO,
-    PENTAGON_VAO,
-    VAOS_COUNT,
-};
+#include "module3.h"
 
 
-typedef struct {
-    float x;
-    float y;
-    float z;
-    float r;
-    float g;
-    float b;
-} Vertex;
-
-typedef struct {
-    float x;
-    float y;
-} Vector2;
-
-typedef struct {
-    float r;
-    float g;
-    float b;
-} ColorRGB;
-
-typedef struct {
-    Vector2  position;
-    ColorRGB color;
-} GradientVertex;
-
-typedef struct {
-    Vector2 center;
-    int width;
-    int height;
-} Window_Info;
-
-typedef struct {
-    bool pressed_this_frame;
-    bool pressed;
-} Keyboard_Key;
-
-typedef struct {
-    int id;
-    int vertex_position;
-    int color;
-} UniformColorShader;
-
-typedef struct {
-    int id;
-    int vertex_position;
-} FlatColorShader;
-
-typedef struct {
-    int id;
-    int vertex_position;
-    int vertex_color;
-    int time;
-} GradientShader;
-
-typedef struct {
-    FlatColorShader flat_color;
-    UniformColorShader uniform_flat_color;
-    GradientShader  gradient;
-} Shaders;
-
-typedef struct {
-    GLFWwindow *window;
-    Window_Info window_info;
-    Shaders shaders;
-
-    Vector2 mouse_position;
-    Keyboard_Key keys[GLFW_KEY_LAST];
-} Program;
-
-
-Vertex triangle_vertices[] = {
-    { -1.0f, -0.7f,  0.0f,  1.0f, 0.0f, 0.0f },
-    {  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f },
-    {  1.0f, -0.7f,  0.0f,  0.0f, 0.0f, 1.0f },
-};
-
-GradientVertex triangle2d_vertices[] = {
+GradientVertex triangle_vertices[] = {
     { { -1.0f, -0.7f }, { 1.0f, 0.0f, 0.0f } },
     { {  0.0f,  0.8f }, { 0.0f, 1.0f, 0.0f } },
     { {  1.0f, -0.7f }, { -.0f, 0.0f, 1.0f } },
@@ -138,142 +38,23 @@ int vertex_buffers[VERTEX_BUFFERS_COUNT];
 int vaos[VAOS_COUNT];
 
 
-void glfw_error_callback(int error_code, const char* description) {
-    fprintf(stderr, "GLFW ERROR %d: %s\n", error_code, description);
-}
+void opengl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *user_param);
+int compile_shader(const char *shader_path);
 
-void glfw_window_resize_callback(GLFWwindow *window, int width, int height) {
-    Program *program = (Program *)glfwGetWindowUserPointer(window);
-
-    program->window_info.width = width;
-    program->window_info.height = height;
-}
-
-void glfw_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    Program *program = (Program *)glfwGetWindowUserPointer(window);
-    if (action == GLFW_PRESS) {
-        program->keys[key].pressed_this_frame = true;
-        program->keys[key].pressed = true;
-    }
-    if (action == GLFW_RELEASE) {
-        program->keys[key].pressed = false;
-    }
-}
-
-void glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-    //fprintf(stderr, "%d\n", button);
-}
-
-void glfw_cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
-    //fprintf(stderr, "%f %f\n", xpos, ypos);
-}
-
-char *read_entire_file(const char *filename) {
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) {
-        return NULL;
-    }
-
-    fseek(file, 0, SEEK_END);
-    long file_length = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    char *result = malloc(file_length);
-    size_t bytes_read = fread(result, 1, file_length, file);
-
-    if (bytes_read != file_length) {
-        return NULL;
-    }
-    result[bytes_read] = '\0';
-
-    fclose(file);
-    return result;
-}
-
-void check_for_opengl_errors() {
-    int error_code = glGetError();
-    if (error_code == GL_NO_ERROR) {
-        return;
-    }
-
-    fprintf(stderr, "GL Error: %d\n", error_code);
-}
-
-int compile_shader(const char *shader_path) {
-    char log[256];
-    int log_length;
-
-    char vertex_shader_path[128];
-    char fragment_shader_path[128];
-    snprintf(vertex_shader_path, ARRAY_LEN(vertex_shader_path), "%s.vs", shader_path);
-    snprintf(fragment_shader_path, ARRAY_LEN(fragment_shader_path), "%s.fs", shader_path);
-
-    char *vertex_shader_source = read_entire_file(vertex_shader_path);
-    char *fragment_shader_source = read_entire_file(fragment_shader_path);
-    assert(vertex_shader_source != NULL);
-    assert(fragment_shader_source != NULL);
-
-    int vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex_shader, 1, (const char * const *)&vertex_shader_source, NULL);
-    glCompileShader(vertex_shader);
-
-    glGetShaderInfoLog(vertex_shader, ARRAY_LEN(log), &log_length, log);
-    printf("Vertex shader compile log: '%s'\n", log);
-
-    int fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment_shader, 1, (const char * const *)&fragment_shader_source, NULL);
-    glCompileShader(fragment_shader);
-
-    glGetShaderInfoLog(fragment_shader, ARRAY_LEN(log), &log_length, log);
-    printf("Fragment shader compile log: '%s'\n", log);
-
-    int shader = glCreateProgram();
-    glAttachShader(shader, vertex_shader);
-    glAttachShader(shader, fragment_shader);
-    glLinkProgram(shader);
-
-    glGetProgramInfoLog(shader, ARRAY_LEN(log), &log_length, log);
-    log[log_length] = '\0';
-    printf("Shader link log: '%s'\n", log);
-
-    free(vertex_shader_source);
-    free(fragment_shader_source);
-
-    return shader;
-}
-
-//void GLAPIENTRY opengl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *user_param) {
-//    fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n", (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""), type, severity, message );
-//}
 
 int main() {
     Program _program = {0};
     Program *program = &_program;
     Shaders *shaders = &program->shaders;
 
-    glfwSetErrorCallback(glfw_error_callback);
+    open_window(program, 800, 600, "Модуль 3: OpenGL 🦭");
 
-    int init_ok = glfwInit();
-    assert(init_ok);
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow *window = glfwCreateWindow(800, 600, "Лаба 10 🦭", NULL, NULL);
-    assert(window != NULL);
-
-    program->window = window;
-
-    glfwMakeContextCurrent(window);
-    gladLoadGL();
-    glfwSwapInterval(1);
-
-    glfwSetWindowUserPointer(window, program);
-
-    glfwSetKeyCallback(window, glfw_key_callback);
-    glfwSetMouseButtonCallback(window, glfw_mouse_button_callback);
-    glfwSetCursorPosCallback(window, glfw_cursor_pos_callback);
-    glfwSetWindowSizeCallback(window, glfw_window_resize_callback);
+    //
+    // Обращаю внимание, что любые функции OpenGL
+    // нужно вызывать после open_window().
+    //
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(opengl_debug_message_callback, NULL);
 
     {
         int flat_color = compile_shader("shaders/flat_color");
@@ -308,7 +89,7 @@ int main() {
     glGenBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);
     {
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TRIANGLE]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(triangle2d_vertices), triangle2d_vertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(triangle_vertices), triangle_vertices, GL_STATIC_DRAW);
 
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[RECTANGLE]);
         glBufferData(GL_ARRAY_BUFFER, sizeof(rectangle_vertices), rectangle_vertices, GL_STATIC_DRAW);
@@ -335,10 +116,8 @@ int main() {
 
     ColorRGB flat_color = { 1.0f, 0.0f, 0.0f };
 
-    while (!glfwWindowShouldClose(window)) {
-        int width, height;
-        glfwGetFramebufferSize(window, &width, &height);
-        float ratio = width / (float)height;
+    while (!glfwWindowShouldClose(program->window)) {
+        float time = glfwGetTime();
 
         if (program->keys[GLFW_KEY_1].pressed_this_frame) {
             mode = MODE_CONSTANT_FLAT_COLOR;
@@ -373,60 +152,125 @@ int main() {
             figure = PENTAGON;
         }
 
-        float time = glfwGetTime();
-
-        glViewport(0, 0, width, height);
+        glViewport(0, 0, program->window_info.width, program->window_info.height);
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         switch (mode) {
+            case MODE_CONSTANT_FLAT_COLOR: {
+                glUseProgram(shaders->flat_color.id);
+            } break;
 
-        case MODE_CONSTANT_FLAT_COLOR: {
-            glUseProgram(shaders->flat_color.id);
-        } break;
-        case MODE_UNIFORM_FLAT_COLOR: {
-            glUseProgram(shaders->uniform_flat_color.id);
-            glUniform3f(shaders->uniform_flat_color.color, flat_color.r, flat_color.g, flat_color.b);
-        } break;
-        case MODE_GRADIENT: {
-            glUseProgram(shaders->gradient.id);
-            glUniform1f(shaders->gradient.time, time);
-        } break;
+            case MODE_UNIFORM_FLAT_COLOR: {
+                glUseProgram(shaders->uniform_flat_color.id);
+                glUniform3f(shaders->uniform_flat_color.color, flat_color.r, flat_color.g, flat_color.b);
+            } break;
 
+            case MODE_GRADIENT: {
+                glUseProgram(shaders->gradient.id);
+                glUniform1f(shaders->gradient.time, time);
+            } break;
         }
 
         switch (figure) {
+            case TRIANGLE: {
+                glBindVertexArray(vaos[TRIANGLE_VAO]);
+                glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(triangle_vertices));
+            } break;
 
-        case TRIANGLE: {
-            glBindVertexArray(vaos[TRIANGLE_VAO]);
-            glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(triangle_vertices));
-        } break;
+            case RECTANGLE: {
+                glBindVertexArray(vaos[RECTANGLE_VAO]);
+                glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(rectangle_vertices));
+            } break;
 
-        case RECTANGLE: {
-            glBindVertexArray(vaos[RECTANGLE_VAO]);
-            glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(rectangle_vertices));
-        } break;
+            case FAN: {
+                glBindVertexArray(vaos[FAN_VAO]);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, ARRAY_LEN(fan_vertices));
+            } break;
 
-        case FAN: {
-            glBindVertexArray(vaos[FAN_VAO]);
-            glDrawArrays(GL_TRIANGLE_FAN, 0, ARRAY_LEN(fan_vertices));
-        } break;
-
-        case PENTAGON: {
-            glBindVertexArray(vaos[PENTAGON_VAO]);
-            glDrawArrays(GL_TRIANGLE_FAN, 0, ARRAY_LEN(pentagon_vertices));
-        } break;
-
+            case PENTAGON: {
+                glBindVertexArray(vaos[PENTAGON_VAO]);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, ARRAY_LEN(pentagon_vertices));
+            } break;
         }
 
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(program->window);
         for (int i = 0; i < GLFW_KEY_LAST; i++) {
             program->keys[i].pressed_this_frame = false;
         }
         glfwPollEvents();
     }
 
-    glfwDestroyWindow(window);
-    glfwTerminate();
+    close_window(program);
 }
+
+// Передавайте сюда имя файла БЕЗ расширения.
+// Сами шейдеры должны быть с расширениями .vs для вершинного, .fs для фрагментного.
+// Ну, не дети уже, сами разберетесь 🏅
+int compile_shader(const char *shader_path) {
+    char log[256];
+    int log_length;
+
+    char vertex_shader_path[128];
+    char fragment_shader_path[128];
+    snprintf(vertex_shader_path, ARRAY_LEN(vertex_shader_path), "%s.vs", shader_path);
+    snprintf(fragment_shader_path, ARRAY_LEN(fragment_shader_path), "%s.fs", shader_path);
+
+    char *vertex_shader_source = read_entire_file(vertex_shader_path);
+    char *fragment_shader_source = read_entire_file(fragment_shader_path);
+    assert(vertex_shader_source != NULL);
+    assert(fragment_shader_source != NULL);
+
+    int vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex_shader, 1, (const char * const *)&vertex_shader_source, NULL);
+    glCompileShader(vertex_shader);
+
+    int fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment_shader, 1, (const char * const *)&fragment_shader_source, NULL);
+    glCompileShader(fragment_shader);
+
+    int shader = glCreateProgram();
+    glAttachShader(shader, vertex_shader);
+    glAttachShader(shader, fragment_shader);
+    glLinkProgram(shader);
+
+    int link_ok;
+    glGetProgramiv(shader, GL_LINK_STATUS, &link_ok);
+    if (!link_ok) {
+        char log[256];
+        int length;
+        glGetProgramInfoLog(shader, sizeof(log), &length, log);
+        log[length] = '\0';
+        fprintf(stderr, "GLSL link %s", log);
+        assert(false);
+    }
+
+    free(vertex_shader_source);
+    free(fragment_shader_source);
+
+    return shader;
+}
+
+void opengl_debug_message_callback(
+        GLenum source, GLenum type, GLuint id,
+        GLenum severity, GLsizei length, const GLchar *message,
+        const void *user_param
+) {
+    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+        return;
+    }
+
+    fprintf(stderr, "OpenGL ");
+    if (type == GL_DEBUG_TYPE_ERROR) {
+        fprintf(stderr, "error: ");
+    } else {
+        fprintf(stderr, "warning: ");
+    }
+
+    fprintf(stderr, "%s\n", message);
+
+    if (type == GL_DEBUG_TYPE_ERROR) {
+        assert(false); // Это база.
+    }
+};
