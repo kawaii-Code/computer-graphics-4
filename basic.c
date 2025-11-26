@@ -4,8 +4,6 @@
 char *read_entire_file(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
-        int error = errno; 
-        printf("%d\n", error);
         return NULL;
     }
 
@@ -15,10 +13,6 @@ char *read_entire_file(const char *filename) {
 
     char *result = malloc(file_length);
     size_t bytes_read = fread(result, 1, file_length, file);
-
-    if (bytes_read != file_length) {
-        return NULL;
-    }
     result[bytes_read] = '\0';
 
     fclose(file);
