@@ -21,7 +21,7 @@ add_executable(${PROJECT_NAME}
         camera.c
 )
 
-file(GLOB RAYLIB_FILES "third_party/lib/*raylib.*")
+file(GLOB RAYLIB_FILES "../third_party/lib/*raylib.*")
 list(GET RAYLIB_FILES 0 RAYLIB_FILE)
 
 add_library(raylib STATIC IMPORTED)

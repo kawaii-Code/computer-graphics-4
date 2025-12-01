@@ -812,6 +812,12 @@ int main(int argc, char **argv) {
         objs[selected]->line_angle = line_angle * DEG2RAD;
         scene_draw(scene);
 
+        char *lighting_text = (scene->lighting_mode == LIGHTING_GOURAUD ? "Шейдинг Гуро" : "Шейдинг Фонга");
+        Vector2 text_size = MeasureTextEx(fonts[FONT_MAIN], lighting_text, fonts[FONT_MAIN].baseSize, 0.0f);
+        DrawTextEx(fonts[FONT_MAIN], lighting_text,
+                   (Vector2) {.x = 0, .y = window.height - text_size.y},
+                   fonts[FONT_MAIN].baseSize, 0.0f, ui_text_color);
+
         // ЗДЕСЬ Я НАРИСУЮ СВОЙ, ПО НАСТОЯЩЕМУ КРУТОЙ UI!
         if (epic_data.hide && Button((Rectangle) { .x = window.width - 190, .y = 10, .width = 180, .height = 60 }, "Нажми Меня!")) {
             epic_data.hide = false;

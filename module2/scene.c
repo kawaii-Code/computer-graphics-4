@@ -110,10 +110,10 @@ float calculate_phong_lighting(Vector3 position, Vector3 normal, Vector3 camera,
     Vector3 light = Vector3Normalize(Vector3Subtract(light_source->position, position));
     normal = Vector3Normalize(normal);
 
-    float dot = Vector3DotProduct(normal, Vector3Negate(light));
+    float dot = Vector3DotProduct(normal, light);
     Vector3 reflected_light = Vector3Subtract(light, Vector3Scale(normal, 2 * dot));
 
-    float diffuse = light_source->intensity * 0.5f * fmaxf(Vector3DotProduct(normal, light), 0.0f);
+    float diffuse = light_source->intensity * 0.7f * fmaxf(Vector3DotProduct(normal, light), 0.0f);
     float specular = light_source->intensity * 0.2f * fmaxf(Vector3DotProduct(view, reflected_light), 0.0f);
     float ambient = 0.2f;
 
@@ -343,7 +343,6 @@ void draw_textured_triangle_with_phong_lighting(ZBuffer *zbuffer,
 
                 float depth = 1.0f / (bary.x * inv_z_A + bary.y * inv_z_B + bary.z * inv_z_C);
 
-                // Интерполируем u/z и v/z
                 float u_over_z = bary.x * (a_tex.x * inv_z_A) +
                     bary.y * (b_tex.x * inv_z_B) +
                     bary.z * (c_tex.x * inv_z_C);
@@ -351,11 +350,10 @@ void draw_textured_triangle_with_phong_lighting(ZBuffer *zbuffer,
                     bary.y * (b_tex.y * inv_z_B) +
                     bary.z * (c_tex.y * inv_z_C);
 
-                // Восстанавливаем u, v
                 float u = u_over_z * depth;
                 float v = v_over_z * depth;
 
-                v = 1.0f - v;  // Инвертируем V
+                v = 1.0f - v;
 
                 if (depth < zbuffer->buffer[y * zbuffer->width + x]) {
                     Color pixel_color = Texture_sample(tex, u, v);
@@ -372,9 +370,10 @@ void draw_textured_triangle_with_phong_lighting(ZBuffer *zbuffer,
 
                     float light = calculate_phong_lighting(worldpos, normal, camera, light_source);
 
-                    pixel_color.r *= light;
-                    pixel_color.g *= light;
-                    pixel_color.b *= light;
+                    Color light_color = { 255, 0, 0 };
+                    pixel_color.r = 0.5f * (pixel_color.r + light_color.r * light);
+                    pixel_color.g = 0.5f * (pixel_color.g + light_color.g * light);
+                    pixel_color.b = 0.5f * (pixel_color.b + light_color.b * light);
 
                     DrawPixel(x, y, pixel_color);
                     zbuffer->buffer[y * zbuffer->width + x] = depth;
@@ -410,7 +409,8 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             screenVerts[v] = cameraz_world_to_screen(worldVert, scene->camera);
             texCoords[v] = obj->mesh->vertices.head[indices.head[v]].texCoord;
             world_positions[v] = worldVert;
-            normals[v] = obj->mesh->vertices.head[indices.head[v]].normal;
+            normals[v] = TransformNormal(obj->mesh->vertices.head[indices.head[v]].normal, worldMatrix);
+            //Vector3 worldNormal = TransformNormal(obj->mesh->vertices.head[indices.head[v]].normal, worldMatrix);
         }
 
         if (scene->lighting_mode == LIGHTING_GOURAUD) {
@@ -447,48 +447,12 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
             for (int i = 1; i < indices.len - 1; i++) {
                 draw_textured_triangle_with_phong_lighting(&scene->zbuffer,
                     screenVerts[0], texCoords[0], world_positions[0], normals[0],
-                    screenVerts[i], texCoords[i], world_positions[i], normals[1],
-                    screenVerts[i + 1], texCoords[i + 1], world_positions[i + 1], normals[2],
+                    screenVerts[i], texCoords[i], world_positions[i], normals[i],
+                    screenVerts[i + 1], texCoords[i + 1], world_positions[i + 1], normals[i + 1],
                     obj->texture, &scene->light, scene->camera->position);
             }
         }
 
-        //// Вычисляем цвета вершин по модели Ламберта для шейдинга Гуро
-        //Color *vertexColors = calloc(indices.len, sizeof(Color));
-        //for (size_t v = 0; v < indices.len; v++) {
-        //    Vector3 worldVert = worldVerts->head[indices.head[v]];
-        //    Vector3 worldNormal = TransformNormal(obj->mesh->vertices.head[indices.head[v]].normal, worldMatrix);
-
-        //    float normalLength = Vector3Length(worldNormal);
-        //    if (normalLength > 0.0001f) {
-        //        worldNormal = Vector3Normalize(worldNormal);
-        //    } else {
-        //        // Если нормаль нулевая, вычисляем нормаль грани
-        //        Vector3 v0 = worldVerts->head[indices.head[0]];
-        //        Vector3 v1 = worldVerts->head[indices.head[(v + 1) % indices.len]];
-        //        Vector3 v2 = worldVerts->head[indices.head[(v + 2) % indices.len]];
-        //        Vector3 edge1 = Vector3Subtract(v1, v0);
-        //        Vector3 edge2 = Vector3Subtract(v2, v0);
-        //        worldNormal = Vector3Normalize(Vector3CrossProduct(edge1, edge2));
-        //    }
-
-        //    vertexColors[v] = calculate_lambert_lighting(worldVert, worldNormal, obj->mesh->color, &scene->light);
-        //}
-
-        //// Рисуем контуры
-        //for (size_t v = 0; v < indices.len; v++) {
-        //    int next = (v + 1) % indices.len;
-        //    plotLine(&scene->zbuffer, screenVerts[v], screenVerts[next]);
-        //}
-
-        //// Рисуем треугольники с шейдингом Гуро (интерполяция цветов вершин)
-        //for (int i = 1; i < indices.len - 1; i++) {
-        //    draw_triangle_gouraud(&scene->zbuffer,
-        //        screenVerts[0], screenVerts[i], screenVerts[i + 1],
-        //        vertexColors[0], vertexColors[i], vertexColors[i + 1]);
-        //}
-
-        //free(vertexColors);
         free(screenVerts);
     }
 
@@ -512,11 +476,13 @@ void scene_obj_draw(Scene* scene, SceneObject* obj) {
     //    Vector3 faceCenter = Face_getCenter_World(obj->mesh, face, worldMatrix);
 
     //    Vector3 normalEnd = Vector3Add(faceCenter, Vector3Scale(worldNormal, 0.5f));
-    //    Vector2 faceScreen = cameraz_world_to_screen(faceCenter, scene->camera);
-    //    Vector2 normalScreen = cameraz_world_to_screen(normalEnd, scene->camera);
+    //    Vector3 faceScreen = cameraz_world_to_screen(faceCenter, scene->camera);
+    //    Vector3 normalScreen = cameraz_world_to_screen(normalEnd, scene->camera);
 
     //    bool isVisible = Face_isFrontFacing(obj->mesh, face, scene->camera,worldMatrix);
-    //    DrawLineV(faceScreen, normalScreen, isVisible ? GREEN : RED);
+    //    Vector2 faceScreen2 = (Vector2) { faceScreen.x, faceScreen.y };
+    //    Vector2 normalScreen2 = (Vector2) { normalScreen.x, normalScreen.y };
+    //    DrawLineV(faceScreen2, normalScreen2, isVisible ? GREEN : RED);
     //}
 
     vector_free(*worldVerts);
