@@ -9,39 +9,140 @@
 
 #include "module3.h"
 
-#define PI 3.141592653589793
+#define CIRCLE_SEGMENTS 64
 
-GradientVertex triangle_vertices[] = {
-    { { -1.0f, -0.7f }, { 1.0f, 0.0f, 0.0f } },
-    { {  0.0f,  0.8f }, { 0.0f, 1.0f, 0.0f } },
-    { {  1.0f, -0.7f }, { -.0f, 0.0f, 1.0f } },
+float global_rotation_x = 0.0f;
+float global_rotation_y = 0.0f;
+float global_rotation_z = 0.0f;
+
+float pos_x = 0.0f;  
+float pos_y = 0.0f;
+float zoom = 0.0f;
+
+float scale_x = 1.0f;
+float scale_y = 1.0f;
+float scale_z = 1.0f;
+
+float rotation_speed = 0.05f;
+float move_speed = 0.05f;
+float scale_speed = 0.05f;
+
+GradientVertex3D cube_vertices[] = {
+    { { -0.5, -0.5, +0.5 }, { 0.0f, 0.0f, 0.5f } }, 
+    { { -0.5, +0.5, +0.5 }, { 0.0f, 0.5f, 0.0f } }, 
+    { { +0.5, +0.5, +0.5 }, { 0.5f, 0.5f, 0.5f } }, 
+    { { +0.5, +0.5, +0.5 }, { 0.5f, 0.5f, 0.5f } },
+    { { +0.5, -0.5, +0.5 }, { 0.5f, 0.0f, 0.0f } }, 
+    { { -0.5, -0.5, +0.5 }, { 0.0f, 0.0f, 0.5f } },
+
+    { { -0.5, -0.5, -0.5 }, { 0.3f, 0.0f, 0.3f } }, 
+    { { +0.5, +0.5, -0.5 }, { 0.5f, 0.5f, 0.0f } }, 
+    { { -0.5, +0.5, -0.5 }, { 0.3f, 0.3f, 0.0f } }, 
+    { { +0.5, +0.5, -0.5 }, { 0.5f, 0.5f, 0.0f } },
+    { { -0.5, -0.5, -0.5 }, { 0.3f, 0.0f, 0.3f } },
+    { { +0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f } }, 
+
+    { { -0.5, +0.5, -0.5 }, { 0.0f, 0.5f, 0.5f } },
+    { { -0.5, +0.5, +0.5 }, { 0.0f, 1.0f, 1.0f } }, 
+    { { +0.5, +0.5, +0.5 }, { 0.8f, 0.8f, 0.8f } }, 
+    { { +0.5, +0.5, +0.5 }, { 0.8f, 0.8f, 0.8f } },
+    { { +0.5, +0.5, -0.5 }, { 0.5f, 0.5f, 1.0f } }, 
+    { { -0.5, +0.5, -0.5 }, { 0.0f, 0.5f, 0.5f } },
+
+    { { -0.5, -0.5, -0.5 }, { 0.3f, 0.2f, 0.1f } }, 
+    { { +0.5, -0.5, +0.5 }, { 0.6f, 0.4f, 0.2f } }, 
+    { { -0.5, -0.5, +0.5 }, { 0.4f, 0.3f, 0.1f } }, 
+    { { +0.5, -0.5, +0.5 }, { 0.6f, 0.4f, 0.2f } },
+    { { -0.5, -0.5, -0.5 }, { 0.3f, 0.2f, 0.1f } },
+    { { +0.5, -0.5, -0.5 }, { 0.5f, 0.3f, 0.1f } }, 
+
+    { { +0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.3f } }, 
+    { { +0.5, -0.5, +0.5 }, { 1.0f, 0.0f, 0.5f } },
+    { { +0.5, +0.5, +0.5 }, { 1.0f, 0.5f, 0.8f } }, 
+    { { +0.5, +0.5, +0.5 }, { 1.0f, 0.5f, 0.8f } },
+    { { +0.5, +0.5, -0.5 }, { 0.8f, 0.3f, 0.6f } }, 
+    { { +0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.3f } },
+
+    { { -0.5, -0.5, -0.5 }, { 0.4f, 0.2f, 0.0f } }, 
+    { { -0.5, +0.5, +0.5 }, { 1.0f, 0.6f, 0.0f } }, 
+    { { -0.5, -0.5, +0.5 }, { 0.8f, 0.4f, 0.0f } },
+    { { -0.5, +0.5, +0.5 }, { 1.0f, 0.6f, 0.0f } },
+    { { -0.5, -0.5, -0.5 }, { 0.4f, 0.2f, 0.0f } },
+    { { -0.5, +0.5, -0.5 }, { 0.9f, 0.5f, 0.1f } }, 
 };
 
-GradientVertex rectangle_vertices[] = {
-    { { -0.9f, -0.7f }, { 0.0f, 0.0f, 0.0f } },
-    { { -0.9f,  0.7f }, { 0.0f, 1.0f, 0.0f } },
-    { {  0.9f, -0.7f }, { 0.0f, 0.0f, 1.0f } },
-    { { -0.9f,  0.7f }, { 0.0f, 1.0f, 0.0f } },
-    { {  0.9f,  0.7f }, { 1.0f, 1.0f, 1.0f } },
-    { {  0.9f, -0.7f }, { 0.0f, 0.0f, 1.0f } },
+TexturedVertex3D textured_cube_vertices[] = {
+    { { -0.5, -0.5, +0.5 }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+    { { -0.5, +0.5, +0.5 }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
+    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+    { { +0.5, -0.5, +0.5 }, { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+    { { -0.5, -0.5, +0.5 }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+
+    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 1.0f, 0.0f } },
+    { { -0.5, +0.5, -0.5 }, { 0.0f, 0.5f, 0.5f }, { 1.0f, 1.0f } },
+    { { +0.5, +0.5, -0.5 }, { 0.5f, 0.5f, 0.0f }, { 0.0f, 1.0f } },
+    { { +0.5, +0.5, -0.5 }, { 0.5f, 0.5f, 0.0f }, { 0.0f, 1.0f } },
+    { { +0.5, -0.5, -0.5 }, { 0.0f, 0.5f, 0.0f }, { 0.0f, 0.0f } },
+    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 1.0f, 0.0f } },
+
+    { { -0.5, +0.5, -0.5 }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
+    { { -0.5, +0.5, +0.5 }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
+    { { +0.5, +0.5, -0.5 }, { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+    { { -0.5, +0.5, -0.5 }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
+
+    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 1.0f, 1.0f } },
+    { { -0.5, -0.5, +0.5 }, { 0.0f, 0.5f, 0.5f }, { 1.0f, 0.0f } },
+    { { +0.5, -0.5, +0.5 }, { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f } },
+    { { +0.5, -0.5, +0.5 }, { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f } },
+    { { +0.5, -0.5, -0.5 }, { 0.0f, 0.5f, 0.0f }, { 0.0f, 1.0f } },
+    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 1.0f, 1.0f } },
+
+    { { +0.5, -0.5, -0.5 }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+    { { +0.5, +0.5, -0.5 }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+    { { +0.5, -0.5, +0.5 }, { 1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+    { { +0.5, -0.5, -0.5 }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+
+    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 0.0f, 0.0f } },
+    { { -0.5, +0.5, -0.5 }, { 0.0f, 0.5f, 0.5f }, { 0.0f, 1.0f } },
+    { { -0.5, +0.5, +0.5 }, { 0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f } },
+    { { -0.5, +0.5, +0.5 }, { 0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f } },
+    { { -0.5, -0.5, +0.5 }, { 0.0f, 0.5f, 0.0f }, { 1.0f, 0.0f } },
+    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 0.0f, 0.0f } },
 };
 
-GradientVertex fan_vertices[] = {
-    { {  0.0f, -0.5f }, { 1.0f, 0.0f, 0.0f }},
-    { { -0.5f,  0.3f }, { 0.0f, 1.0f, 0.0f }},
-    { { -0.2f,  0.7f }, { 0.0f, 0.0f, 1.0f }},
-    { {  0.0f,  0.5f }, { 0.0f, 0.0f, 1.0f }},
-    { {  0.2f,  0.7f }, { 0.0f, 1.0f, 0.0f }},
-    { {  0.5f,  0.3f }, { 1.0f, 0.0f, 0.0f }},
+GradientVertex3D tetrahedron_vertices[] = {
+    { {  0.0f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f } }, 
+    { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
+    { {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f } },
+
+    { {  0.0f, -0.5f,  0.5f }, { 1.0f, 0.5f, 0.0f } }, 
+    { { -0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f, 0.0f } },
+    { {  0.0f,  0.5f,  0.0f }, { 1.0f, 0.0f, 0.0f } }, 
+
+    { {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 1.0f } }, 
+    { {  0.0f, -0.5f,  0.5f }, { 0.5f, 0.0f, 1.0f } }, 
+    { {  0.0f,  0.5f,  0.0f }, { 0.0f, 0.0f, 1.0f } }, 
+
+    { { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.7f, 0.7f } }, 
+    { {  0.5f, -0.5f, -0.5f }, { 0.7f, 1.0f, 0.7f } }, 
+    { {  0.0f,  0.5f,  0.0f }, { 0.7f, 0.7f, 1.0f } }, 
 };
+
+GradientVertex3D circle_vertices[CIRCLE_SEGMENTS + 2];
+
+void init_circle_vertices();
+void hue_to_rgb(float hue, float* r, float* g, float* b);
 
 int vertex_buffers[VERTEX_BUFFERS_COUNT];
 int vaos[VAOS_COUNT];
 
-
 void opengl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *user_param);
 int compile_shader(const char *shader_path);
-
 
 int main() {
     Program _program = {0};
@@ -54,52 +155,42 @@ int main() {
     // Обращаю внимание, что любые функции OpenGL
     // нужно вызывать после open_window().
     //
+    init_circle_vertices();
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(opengl_debug_message_callback, NULL);
 
     {
-        int flat_color = compile_shader("shaders/flat_color");
-        int uniform_flat_color = compile_shader("shaders/uniform_flat_color");
-        int gradient = compile_shader("shaders/gradient");
-
-        shaders->flat_color.id = flat_color;
-        shaders->flat_color.vertex_position = glGetAttribLocation(flat_color, "vertex_position");
-
-        shaders->uniform_flat_color.id = uniform_flat_color;
-        shaders->uniform_flat_color.vertex_position = glGetAttribLocation(uniform_flat_color, "vertex_position");
-        shaders->uniform_flat_color.color = glGetUniformLocation(uniform_flat_color, "color");
+        int gradient = compile_shader("shaders/gradient3D");
 
         shaders->gradient.id = gradient;
         shaders->gradient.vertex_position = glGetAttribLocation(gradient, "vertex_position");
         shaders->gradient.vertex_color = glGetAttribLocation(gradient, "vertex_color");
+        shaders->gradient.rotation_x = glGetUniformLocation(gradient, "rotation_x");  
+        shaders->gradient.rotation_y = glGetUniformLocation(gradient, "rotation_y");
+        shaders->gradient.rotation_z = glGetUniformLocation(gradient, "rotation_z");
+        shaders->gradient.position = glGetUniformLocation(gradient, "position");
+        shaders->gradient.zoom = glGetUniformLocation(gradient, "zoom");
+        shaders->gradient.scale = glGetUniformLocation(gradient, "scale");
         shaders->gradient.time = glGetUniformLocation(gradient, "time");
-    }
-
-    GradientVertex pentagon_vertices[5] = {0};
-    float angle_step = (2 * PI) / 5;
-    for (int i = 0; i < 5; i++) {
-        pentagon_vertices[i].position = (Vector2) {
-            .x = 0.9f * cosf(i * angle_step + PI / 2),
-            .y = 0.9f * sinf(i * angle_step + PI / 2),
-        };
-        pentagon_vertices[i].color.r = cosf(i * angle_step + PI / 2);
-        pentagon_vertices[i].color.g = sinf(i * angle_step + PI / 2);
-        pentagon_vertices[i].color.b = sinf(i * angle_step + PI / 2);
     }
 
     glGenBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);
     {
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TRIANGLE]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(triangle_vertices), triangle_vertices, GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[CUBE]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_DYNAMIC_DRAW);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[RECTANGLE]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(rectangle_vertices), rectangle_vertices, GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TETRAHEDRON]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(tetrahedron_vertices), tetrahedron_vertices, GL_DYNAMIC_DRAW);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[FAN]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(fan_vertices), fan_vertices, GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[CIRCLE]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(circle_vertices), circle_vertices, GL_DYNAMIC_DRAW);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[PENTAGON]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(pentagon_vertices), pentagon_vertices, GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TEXTURED_CUBE]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(textured_cube_vertices), textured_cube_vertices, GL_DYNAMIC_DRAW);
     }
 
     glGenVertexArrays(VAOS_COUNT, vaos);
@@ -107,50 +198,51 @@ int main() {
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[i]);
         glBindVertexArray(vaos[i]);
         glEnableVertexAttribArray(shaders->gradient.vertex_position);
-        glVertexAttribPointer(shaders->gradient.vertex_position, 2, GL_FLOAT, GL_FALSE, sizeof(GradientVertex), (void *)0);
+        glVertexAttribPointer(shaders->gradient.vertex_position, 3, GL_FLOAT, GL_FALSE, sizeof(GradientVertex3D), (void *)0);
         glEnableVertexAttribArray(shaders->gradient.vertex_color);
-        glVertexAttribPointer(shaders->gradient.vertex_color, 3, GL_FLOAT, GL_FALSE, sizeof(GradientVertex), (void *)(2 * sizeof(float)));
+        glVertexAttribPointer(shaders->gradient.vertex_color, 3, GL_FLOAT, GL_FALSE, sizeof(GradientVertex3D), (void *)(3 * sizeof(float)));
     }
 
-    int mode = MODE_CONSTANT_FLAT_COLOR;
-    int figure = FAN;
+    int mode = MODE_GRADIENT;
+    int figure = CUBE;
 
     ColorRGB flat_color = { 1.0f, 0.0f, 0.0f };
 
     while (!glfwWindowShouldClose(program->window)) {
         float time = glfwGetTime();
 
-        if (program->keys[GLFW_KEY_1].pressed_this_frame) {
-            mode = MODE_CONSTANT_FLAT_COLOR;
-        }
-        if (program->keys[GLFW_KEY_2].pressed_this_frame) {
-            mode = MODE_UNIFORM_FLAT_COLOR;
-        }
-        if (program->keys[GLFW_KEY_3].pressed_this_frame) {
-            mode = MODE_GRADIENT;
-        }
+        if (program->keys[GLFW_KEY_1].pressed_this_frame) mode = MODE_GRADIENT;
+        if (program->keys[GLFW_KEY_2].pressed_this_frame) mode = MODE_TEXTURED;
 
-        if (program->keys[GLFW_KEY_Z].pressed_this_frame) {
-            flat_color = (ColorRGB) { 1.0f, 0.0f, 0.0f };
-        }
-        if (program->keys[GLFW_KEY_X].pressed_this_frame) {
-            flat_color = (ColorRGB) { 0.0f, 1.0f, 0.0f };
-        }
-        if (program->keys[GLFW_KEY_C].pressed_this_frame) {
-            flat_color = (ColorRGB) { 1.0f, 1.0f, 1.0f };
-        }
+        if (program->keys[GLFW_KEY_Z].pressed_this_frame) figure = TETRAHEDRON;
+        if (program->keys[GLFW_KEY_X].pressed_this_frame) figure = CUBE;
+        if (program->keys[GLFW_KEY_C].pressed_this_frame) figure = CIRCLE;
+        if (program->keys[GLFW_KEY_V].pressed_this_frame) figure = TEXTURED_CUBE;
 
-        if (program->keys[GLFW_KEY_T].pressed_this_frame) {
-            figure = TRIANGLE;
-        }
+        if (program->keys[GLFW_KEY_B].pressed) global_rotation_x += rotation_speed;
+        if (program->keys[GLFW_KEY_N].pressed) global_rotation_y += rotation_speed;
+        if (program->keys[GLFW_KEY_M].pressed) global_rotation_z += rotation_speed;
+
+        if (program->keys[GLFW_KEY_A].pressed) pos_x -= move_speed;
+        if (program->keys[GLFW_KEY_D].pressed) pos_x += move_speed;
+        if (program->keys[GLFW_KEY_W].pressed) pos_y += move_speed;
+        if (program->keys[GLFW_KEY_S].pressed) pos_y -= move_speed;
+
+        if (program->keys[GLFW_KEY_Q].pressed) zoom += 0.02;
+        if (program->keys[GLFW_KEY_E].pressed) zoom -= 0.02;
+        
+
+        if (program->keys[GLFW_KEY_U].pressed) scale_x += scale_speed;
+        if (program->keys[GLFW_KEY_J].pressed) scale_x -= scale_speed;
+        if (program->keys[GLFW_KEY_I].pressed) scale_y += scale_speed;
+        if (program->keys[GLFW_KEY_K].pressed) scale_y -= scale_speed;
+        if (program->keys[GLFW_KEY_O].pressed) scale_z += scale_speed;
+        if (program->keys[GLFW_KEY_L].pressed) scale_z -= scale_speed;
+
         if (program->keys[GLFW_KEY_R].pressed_this_frame) {
-            figure = RECTANGLE;
-        }
-        if (program->keys[GLFW_KEY_F].pressed_this_frame) {
-            figure = FAN;
-        }
-        if (program->keys[GLFW_KEY_P].pressed_this_frame) {
-            figure = PENTAGON;
+            global_rotation_x = global_rotation_y = global_rotation_z = 0.0f;
+            pos_x = pos_y = zoom = 0.0f;
+            scale_x = scale_y = scale_z = 1.0f;
         }
 
         glViewport(0, 0, program->window_info.width, program->window_info.height);
@@ -158,42 +250,44 @@ int main() {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        switch (mode) {
-            case MODE_CONSTANT_FLAT_COLOR: {
-                glUseProgram(shaders->flat_color.id);
-            } break;
+        
 
-            case MODE_UNIFORM_FLAT_COLOR: {
-                glUseProgram(shaders->uniform_flat_color.id);
-                glUniform3f(shaders->uniform_flat_color.color, flat_color.r, flat_color.g, flat_color.b);
+        switch (mode) {
+            case MODE_TEXTURED: {
             } break;
 
             case MODE_GRADIENT: {
                 glUseProgram(shaders->gradient.id);
                 glUniform1f(shaders->gradient.time, time);
+                glUniform1f(shaders->gradient.rotation_x, global_rotation_x);
+                glUniform1f(shaders->gradient.rotation_y, global_rotation_y);
+                glUniform1f(shaders->gradient.rotation_z, global_rotation_z);
+                glUniform2f(shaders->gradient.position, pos_x, pos_y);
+                glUniform1f(shaders->gradient.zoom, zoom);
+                glUniform3f(shaders->gradient.scale, scale_x, scale_y, scale_z);
             } break;
         }
 
         switch (figure) {
-            case TRIANGLE: {
-                glBindVertexArray(vaos[TRIANGLE_VAO]);
-                glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(triangle_vertices));
+            case CUBE: {
+                glBindVertexArray(vaos[CUBE_VAO]);
+                glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(cube_vertices));
             } break;
 
-            case RECTANGLE: {
-                glBindVertexArray(vaos[RECTANGLE_VAO]);
-                glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(rectangle_vertices));
+            case TETRAHEDRON: {
+                glBindVertexArray(vaos[TETRAHEDRON_VAO]);
+                glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(tetrahedron_vertices));
             } break;
 
-            case FAN: {
-                glBindVertexArray(vaos[FAN_VAO]);
-                glDrawArrays(GL_TRIANGLE_FAN, 0, ARRAY_LEN(fan_vertices));
+            case CIRCLE: {
+                glBindVertexArray(vaos[CIRCLE_VAO]);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, ARRAY_LEN(circle_vertices));
             } break;
 
-            case PENTAGON: {
-                glBindVertexArray(vaos[PENTAGON_VAO]);
-                glDrawArrays(GL_TRIANGLE_FAN, 0, ARRAY_LEN(pentagon_vertices));
-            } break;
+            //case TEXTURED_CUBE: {
+            //    glBindVertexArray(vaos[TEXTURED_CUBE_VAO]);
+            //    glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(textured_cube_vertices));
+            //} break;
         }
 
         glfwSwapBuffers(program->window);
@@ -275,3 +369,47 @@ void opengl_debug_message_callback(
         assert(false); // Это база.
     }
 };
+
+void init_circle_vertices() {
+    circle_vertices[0].position.x = 0.0f;
+    circle_vertices[0].position.y = 0.0f;
+    circle_vertices[0].position.z = 0.0f;
+    circle_vertices[0].color.r = 1.0f;  
+    circle_vertices[0].color.g = 1.0f;  
+    circle_vertices[0].color.b = 1.0f; 
+
+    for (int i = 0; i <= CIRCLE_SEGMENTS; i++) {
+        float angle = 2.0f * PI * i / CIRCLE_SEGMENTS;
+
+        circle_vertices[i + 1].position.x = cosf(angle);
+        circle_vertices[i + 1].position.y = sinf(angle);
+        circle_vertices[i + 1].position.z = 0.0f;  
+
+        float hue = (float)i / CIRCLE_SEGMENTS;  
+
+        float r, g, b;
+        hue_to_rgb(hue, &r, &g, &b);
+
+        circle_vertices[i + 1].color.r = r;
+        circle_vertices[i + 1].color.g = g;
+        circle_vertices[i + 1].color.b = b;
+    }
+}
+
+void hue_to_rgb(float hue, float* r, float* g, float* b) {
+    float h = hue * 6.0f;  
+    int sector = (int)h;
+    float fraction = h - sector;
+
+    float q = 1.0f - fraction;
+    float t = fraction;
+
+    switch (sector % 6) {
+    case 0: *r = 1.0f; *g = t; *b = 0.0f; break;
+    case 1: *r = q; *g = 1.0f; *b = 0.0f; break;
+    case 2: *r = 0.0f; *g = 1.0f; *b = t; break;
+    case 3: *r = 0.0f; *g = q; *b = 1.0f; break;
+    case 4: *r = t; *g = 0.0f; *b = 1.0f; break;
+    case 5: *r = 1.0f; *g = 0.0f; *b = q; break;
+    }
+}
