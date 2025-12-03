@@ -109,9 +109,24 @@ typedef struct {
 } GradientShader;
 
 typedef struct {
+    int id;
+    int vertex_position;
+    int vertex_color;
+    int vertex_tex;
+    float rotation_x;
+    float rotation_y;
+    float rotation_z;
+    float position;
+    float scale;
+    int texture;
+    int color_boost;
+}TexturedShader;
+
+typedef struct {
     FlatColorShader flat_color;
     UniformColorShader uniform_flat_color;
     GradientShader  gradient;
+    TexturedShader textured;
 } Shaders;
 
 typedef struct {

@@ -1,12 +1,17 @@
 #version 330
 
-in vec3 ourColor;
-in vec2 TexCoord;
+in vec3 color;
+in vec2 texcoord;
 
 uniform sampler2D ourTexture;
+uniform vec3 colorBoost;
 
-out vec4 color;
+out vec4 FragColor;
 
 void main() {
-    Color=texture(ourTexture,TexCoord)* vec4(ourColor,1.0f);
+    vec4 texColor = texture(ourTexture, texcoord);
+    
+    vec3 boostedColor = texColor.rgb * (1.0 + colorBoost);
+    
+    FragColor = vec4(boostedColor * color, texColor.a);
 }

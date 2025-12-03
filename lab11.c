@@ -27,6 +27,9 @@ float rotation_speed = 0.05f;
 float move_speed = 0.05f;
 float scale_speed = 0.05f;
 
+ColorRGB color_boost = { 0.0f, 0.0f, 0.0f };
+float boost_step = 0.1f;
+
 GradientVertex3D cube_vertices[] = {
     { { -0.5, -0.5, +0.5 }, { 0.0f, 0.0f, 0.5f } }, 
     { { -0.5, +0.5, +0.5 }, { 0.0f, 0.5f, 0.0f } }, 
@@ -133,6 +136,9 @@ GradientVertex3D tetrahedron_vertices[] = {
     { {  0.0f,  0.5f,  0.0f }, { 0.7f, 0.7f, 1.0f } }, 
 };
 
+#define CHECKER_SIZE 8  // Размер клетки в пикселях
+#define TEX_SIZE 64 
+
 GradientVertex3D circle_vertices[CIRCLE_SEGMENTS + 2];
 
 void init_circle_vertices();
@@ -176,7 +182,58 @@ int main() {
         shaders->gradient.zoom = glGetUniformLocation(gradient, "zoom");
         shaders->gradient.scale = glGetUniformLocation(gradient, "scale");
         shaders->gradient.time = glGetUniformLocation(gradient, "time");
+
+        int textured = compile_shader("shaders/textured_cube");
+
+        shaders->textured.id = textured;
+        shaders->textured.vertex_position = glGetAttribLocation(textured, "aPos");
+        shaders->textured.vertex_color = glGetAttribLocation(textured, "aColor");
+        shaders->textured.vertex_tex = glGetAttribLocation(textured, "aTexCoord");
+        shaders->textured.rotation_x = glGetUniformLocation(textured, "rotation_x");
+        shaders->textured.rotation_y = glGetUniformLocation(textured, "rotation_y");
+        shaders->textured.rotation_z = glGetUniformLocation(textured, "rotation_z");
+        shaders->textured.position = glGetUniformLocation(textured, "position");
+        shaders->textured.scale = glGetUniformLocation(textured, "scale");
+        shaders->textured.texture = glGetUniformLocation(textured, "ourTexture");
+        shaders->textured.color_boost = glGetUniformLocation(textured, "colorBoost");
     }
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    // Создаём массив для текстуры
+    unsigned char* checker_pixels = malloc(TEX_SIZE * TEX_SIZE * 3);
+
+    for (int y = 0; y < TEX_SIZE; y++) {
+        for (int x = 0; x < TEX_SIZE; x++) {
+            int index = (y * TEX_SIZE + x) * 3;
+
+            // Определяем цвет клетки
+            int cellX = x / CHECKER_SIZE;
+            int cellY = y / CHECKER_SIZE;
+
+            if ((cellX + cellY) % 2 == 0) {
+                // Белая клетка
+                checker_pixels[index] = 255;     // R
+                checker_pixels[index + 1] = 255; // G
+                checker_pixels[index + 2] = 255; // B
+            }
+            else {
+                // Чёрная клетка
+                checker_pixels[index] = 0;       // R
+                checker_pixels[index + 1] = 0;   // G
+                checker_pixels[index + 2] = 0;   // B
+            }
+        }
+    }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, TEX_SIZE, TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, checker_pixels);
+    free(checker_pixels);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
     glGenBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);
     {
@@ -201,6 +258,16 @@ int main() {
         glVertexAttribPointer(shaders->gradient.vertex_position, 3, GL_FLOAT, GL_FALSE, sizeof(GradientVertex3D), (void *)0);
         glEnableVertexAttribArray(shaders->gradient.vertex_color);
         glVertexAttribPointer(shaders->gradient.vertex_color, 3, GL_FLOAT, GL_FALSE, sizeof(GradientVertex3D), (void *)(3 * sizeof(float)));
+    }
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TEXTURED_CUBE]);
+        glBindVertexArray(vaos[TEXTURED_CUBE]);
+        glEnableVertexAttribArray(shaders->textured.vertex_position);
+        glVertexAttribPointer(shaders->textured.vertex_position, 3, GL_FLOAT, GL_FALSE, sizeof(TexturedVertex3D), (void*)0);
+        glEnableVertexAttribArray(shaders->textured.vertex_color);
+        glVertexAttribPointer(shaders->textured.vertex_color, 3, GL_FLOAT, GL_FALSE, sizeof(TexturedVertex3D), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(shaders->textured.vertex_tex);
+        glVertexAttribPointer(shaders->textured.vertex_tex, 2, GL_FLOAT, GL_FALSE, sizeof(TexturedVertex3D), (void*)(6 * sizeof(float)));
     }
 
     int mode = MODE_GRADIENT;
@@ -239,10 +306,27 @@ int main() {
         if (program->keys[GLFW_KEY_O].pressed) scale_z += scale_speed;
         if (program->keys[GLFW_KEY_L].pressed) scale_z -= scale_speed;
 
+        if (program->keys[GLFW_KEY_3].pressed) color_boost.r += boost_step; // + Красный
+        if (program->keys[GLFW_KEY_5].pressed) color_boost.g += boost_step; // + Зелёный
+        if (program->keys[GLFW_KEY_7].pressed) color_boost.b += boost_step; // + Синий
+
+        if (program->keys[GLFW_KEY_4].pressed) color_boost.r -= boost_step; // - Красный
+        if (program->keys[GLFW_KEY_6].pressed) color_boost.g -= boost_step; // - Зелёный
+        if (program->keys[GLFW_KEY_8].pressed) color_boost.b -= boost_step; // -Синий
+
+        if (color_boost.r < 0.0f) color_boost.r = 0.0f;
+        if (color_boost.g < 0.0f) color_boost.g = 0.0f;
+        if (color_boost.b < 0.0f) color_boost.b = 0.0f;
+
+        if (color_boost.r > 2.0f) color_boost.r = 2.0f;
+        if (color_boost.g > 2.0f) color_boost.g = 2.0f;
+        if (color_boost.b > 2.0f) color_boost.b = 2.0f;
+
         if (program->keys[GLFW_KEY_R].pressed_this_frame) {
             global_rotation_x = global_rotation_y = global_rotation_z = 0.0f;
             pos_x = pos_y = zoom = 0.0f;
             scale_x = scale_y = scale_z = 1.0f;
+            color_boost.r = color_boost.g = color_boost.b = 0.0f;
         }
 
         glViewport(0, 0, program->window_info.width, program->window_info.height);
@@ -254,6 +338,17 @@ int main() {
 
         switch (mode) {
             case MODE_TEXTURED: {
+                glUseProgram(shaders->textured.id);
+                glUniform1f(shaders->textured.rotation_x, global_rotation_x);
+                glUniform1f(shaders->textured.rotation_y, global_rotation_y);
+                glUniform1f(shaders->textured.rotation_z, global_rotation_z);
+                glUniform2f(shaders->textured.position, pos_x, pos_y);
+                glUniform3f(shaders->textured.scale, scale_x, scale_y, scale_z);
+                glUniform3f(shaders->textured.color_boost, color_boost.r, color_boost.g, color_boost.b);
+
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, texture);
+                glUniform1i(shaders->textured.texture, 0);
             } break;
 
             case MODE_GRADIENT: {
@@ -284,10 +379,10 @@ int main() {
                 glDrawArrays(GL_TRIANGLE_FAN, 0, ARRAY_LEN(circle_vertices));
             } break;
 
-            //case TEXTURED_CUBE: {
-            //    glBindVertexArray(vaos[TEXTURED_CUBE_VAO]);
-            //    glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(textured_cube_vertices));
-            //} break;
+            case TEXTURED_CUBE: {
+                glBindVertexArray(vaos[TEXTURED_CUBE_VAO]);
+                glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(textured_cube_vertices));
+            } break;
         }
 
         glfwSwapBuffers(program->window);
