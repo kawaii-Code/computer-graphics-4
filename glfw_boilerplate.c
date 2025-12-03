@@ -23,7 +23,11 @@ void open_window(Program *program, int window_width, int window_height, const ch
 
     glfwMakeContextCurrent(window);
     gladLoadGL();
+
+    // Это включает VSync. Для максимума FPS-ов и прогрева процессора замените 1 на 0.
     glfwSwapInterval(1);
+
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glfwSetWindowUserPointer(window, program);
 
@@ -34,7 +38,6 @@ void open_window(Program *program, int window_width, int window_height, const ch
 }
 
 void close_window(Program *program) {
-    glfwDestroyWindow(program->window);
     glfwTerminate();
 }
 
@@ -61,9 +64,25 @@ void glfw_callback_key(GLFWwindow *window, int key, int scancode, int action, in
 }
 
 void glfw_callback_mouse_button(GLFWwindow* window, int button, int action, int mods) {
-    //fprintf(stderr, "%d\n", button);
+    Program *program = (Program *)glfwGetWindowUserPointer(window);
+
+    Keyboard_Key *btn = (button == GLFW_MOUSE_BUTTON_LEFT) ? &program->mouse.left : &program->mouse.right;
+    if (action == GLFW_PRESS) {
+        btn->pressed_this_frame = true;
+        btn->pressed = true;
+    } else if (action == GLFW_RELEASE) {
+        btn->pressed = false;
+    }
 }
 
 void glfw_callback_cursor_pos(GLFWwindow* window, double xpos, double ypos) {
-    //fprintf(stderr, "%f %f\n", xpos, ypos);
+    Program *program = (Program *)glfwGetWindowUserPointer(window);
+
+    Mouse *mouse = &program->mouse;
+
+    mouse->move.x = xpos - mouse->position.x;
+    mouse->move.y = -1 * (ypos - mouse->position.y);
+
+    mouse->position.x = xpos;
+    mouse->position.y = ypos;
 }

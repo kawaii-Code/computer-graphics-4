@@ -5,10 +5,9 @@
 
 #include <GLFW/glfw3.h>
 
+#include "linalg.h"
 
 #define ARRAY_LEN(a) (sizeof(a) / sizeof(*(a)))
-
-#define PI 3.141592653589793
 
 enum {
     MODE_CONSTANT_FLAT_COLOR = 0,
@@ -35,20 +34,9 @@ enum {
 };
 
 typedef struct {
-    float x;
-    float y;
-} Vector2;
-
-typedef struct {
-    float x;
-    float y;
-    float z;
-} Vector3;
-
-typedef struct {
     float u;
     float v;
-}Texture;
+} Texture;
 
 typedef struct {
     float r;
@@ -98,12 +86,16 @@ typedef struct {
     int id;
     int vertex_position;
     int vertex_color;
-    float rotation_x;  
-    float rotation_y;  
-    float rotation_z;
-    float position;
-    float zoom;
-    float scale;
+    int rotation_x;  
+    int rotation_y;  
+    int rotation_z;
+    int position;
+    int zoom;
+    int scale;
+    int world;
+    int view_proj;
+    int view;
+    int proj;
     int time;
 } GradientShader;
 
@@ -145,11 +137,35 @@ typedef struct {
 } Shaders;
 
 typedef struct {
+    Vector3 position;
+
+    float pitch;
+    float yaw;
+
+    float field_of_view;
+    float near;
+    float far;
+    float aspect;
+
+    // Вручную не менять! Заполняется в camera_update().
+    Vector3 forward;
+    Vector3 right;
+    Vector3 up;
+} Camera;
+
+typedef struct {
+    Vector2 position;
+    Vector2 move;
+    Keyboard_Key right;
+    Keyboard_Key left;
+} Mouse;
+
+typedef struct {
     GLFWwindow *window;
     Window_Info window_info;
     Shaders shaders;
 
-    Vector2 mouse_position;
+    Mouse mouse;
     Keyboard_Key keys[GLFW_KEY_LAST];
 } Program;
 

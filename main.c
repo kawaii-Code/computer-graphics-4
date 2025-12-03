@@ -7,15 +7,21 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 #include "module3.h"
 
 #define CIRCLE_SEGMENTS 64
+
+const float camera_move_speed = 10.0f;
+const float sensitivity = 1.0f;
 
 float global_rotation_x = 0.0f;
 float global_rotation_y = 0.0f;
 float global_rotation_z = 0.0f;
 
-float pos_x = 0.0f;  
+float pos_x = 0.0f;
 float pos_y = 0.0f;
 float zoom = 0.0f;
 
@@ -23,15 +29,15 @@ float scale_x = 1.0f;
 float scale_y = 1.0f;
 float scale_z = 1.0f;
 
-float rotation_speed = 0.05f;
-float move_speed = 0.05f;
-float scale_speed = 0.05f;
+const float rotation_speed = 0.05f;
+const float move_speed = 0.05f;
+const float scale_speed = 0.05f;
 
 ColorRGB color_boost = { 0.0f, 0.0f, 0.0f };
 float boost_step = 0.1f;
 
 float texture_mix = 0.0f; 
-float mix_step = 0.05f;
+float mix_step = 1;
 
 GradientVertex3D cube_vertices[] = {
     { { -0.5, -0.5, +0.5 }, { 0.0f, 0.0f, 0.5f } }, 
@@ -143,27 +149,38 @@ GradientVertex3D tetrahedron_vertices[] = {
 #define TEX_SIZE 64 
 
 GradientVertex3D circle_vertices[CIRCLE_SEGMENTS + 2];
+GLuint vertex_buffers[VERTEX_BUFFERS_COUNT];
+GLuint vaos[VAOS_COUNT];
+
 
 void init_circle_vertices();
 void hue_to_rgb(float hue, float* r, float* g, float* b);
-
-int vertex_buffers[VERTEX_BUFFERS_COUNT];
-int vaos[VAOS_COUNT];
-
 void opengl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *user_param);
 int compile_shader(const char *shader_path);
+float clamp(float x, float low, float high);
+
+Vector3 direction_from_pitch_yaw(float pitch, float yaw);
+void camera_update(Camera *camera);
 
 int main() {
     Program _program = {0};
     Program *program = &_program;
     Shaders *shaders = &program->shaders;
 
-    open_window(program, 800, 600, "Модуль 3: OpenGL 🦭");
+    Camera camera = {
+        .position = { 0, 0, -10 },
+        .up = { 0, 1, 0 },
+        .field_of_view = DEG2RAD * 30.0f,
+        .near = 0.001f,
+        .far = 10000.0f,
+    };
 
     //
     // Обращаю внимание, что любые функции OpenGL
     // нужно вызывать после open_window().
     //
+    open_window(program, 800, 600, "Модуль 3: OpenGL 🦭");
+
     init_circle_vertices();
 
     glEnable(GL_DEPTH_TEST);
@@ -178,13 +195,10 @@ int main() {
         shaders->gradient.id = gradient;
         shaders->gradient.vertex_position = glGetAttribLocation(gradient, "vertex_position");
         shaders->gradient.vertex_color = glGetAttribLocation(gradient, "vertex_color");
-        shaders->gradient.rotation_x = glGetUniformLocation(gradient, "rotation_x");  
-        shaders->gradient.rotation_y = glGetUniformLocation(gradient, "rotation_y");
-        shaders->gradient.rotation_z = glGetUniformLocation(gradient, "rotation_z");
-        shaders->gradient.position = glGetUniformLocation(gradient, "position");
-        shaders->gradient.zoom = glGetUniformLocation(gradient, "zoom");
-        shaders->gradient.scale = glGetUniformLocation(gradient, "scale");
         shaders->gradient.time = glGetUniformLocation(gradient, "time");
+        shaders->gradient.view = glGetUniformLocation(gradient, "view");
+        shaders->gradient.proj = glGetUniformLocation(gradient, "proj");
+        shaders->gradient.world = glGetUniformLocation(gradient, "world");
 
         int textured = compile_shader("shaders/textured_cube");
 
@@ -230,14 +244,14 @@ int main() {
             int cellY = y / CHECKER_SIZE;
 
             if ((cellX + cellY) % 2 == 0) {
-                checker_pixels[index] = 255;     
-                checker_pixels[index + 1] = 255; 
+                checker_pixels[index] = 255;
+                checker_pixels[index + 1] = 255;
                 checker_pixels[index + 2] = 255;
             }
             else {
-                checker_pixels[index] = 0;       
-                checker_pixels[index + 1] = 0;   
-                checker_pixels[index + 2] = 0;   
+                checker_pixels[index] = 0;
+                checker_pixels[index + 1] = 0;
+                checker_pixels[index + 2] = 0;
             }
         }
     }
@@ -281,20 +295,22 @@ int main() {
     glGenBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);
     {
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[CUBE]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
 
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TETRAHEDRON]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(tetrahedron_vertices), tetrahedron_vertices, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(tetrahedron_vertices), tetrahedron_vertices, GL_STATIC_DRAW);
 
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[CIRCLE]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(circle_vertices), circle_vertices, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(circle_vertices), circle_vertices, GL_STATIC_DRAW);
 
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TEXTURED_CUBE]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(textured_cube_vertices), textured_cube_vertices, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(textured_cube_vertices), textured_cube_vertices, GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
     glGenVertexArrays(VAOS_COUNT, vaos);
-    for (int i = 0; i < VAOS_COUNT; i++) {
+    for (int i = 0; i < TEXTURED_CUBE_VAO; i++) {
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[i]);
         glBindVertexArray(vaos[i]);
         glEnableVertexAttribArray(shaders->gradient.vertex_position);
@@ -302,9 +318,10 @@ int main() {
         glEnableVertexAttribArray(shaders->gradient.vertex_color);
         glVertexAttribPointer(shaders->gradient.vertex_color, 3, GL_FLOAT, GL_FALSE, sizeof(GradientVertex3D), (void *)(3 * sizeof(float)));
     }
+
     {
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TEXTURED_CUBE]);
-        glBindVertexArray(vaos[TEXTURED_CUBE]);
+        glBindVertexArray(vaos[TEXTURED_CUBE_VAO]);
         glEnableVertexAttribArray(shaders->textured.vertex_position);
         glVertexAttribPointer(shaders->textured.vertex_position, 3, GL_FLOAT, GL_FALSE, sizeof(TexturedVertex3D), (void*)0);
         glEnableVertexAttribArray(shaders->textured.vertex_color);
@@ -313,13 +330,17 @@ int main() {
         glVertexAttribPointer(shaders->textured.vertex_tex, 2, GL_FLOAT, GL_FALSE, sizeof(TexturedVertex3D), (void*)(6 * sizeof(float)));
     }
 
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
     int mode = MODE_GRADIENT;
     int figure = CUBE;
 
-    ColorRGB flat_color = { 1.0f, 0.0f, 0.0f };
-
+    float time = glfwGetTime();
+    float last_frame_time = glfwGetTime();
+    float delta_time = 1 / 60.0f;
     while (!glfwWindowShouldClose(program->window)) {
-        float time = glfwGetTime();
+        camera.aspect = (float)program->window_info.width / (float)program->window_info.height;
+        camera_update(&camera);
 
         if (program->keys[GLFW_KEY_1].pressed_this_frame) mode = MODE_GRADIENT;
         if (program->keys[GLFW_KEY_2].pressed_this_frame) mode = MODE_TEXTURED;
@@ -341,7 +362,6 @@ int main() {
 
         if (program->keys[GLFW_KEY_Q].pressed) zoom += 0.02;
         if (program->keys[GLFW_KEY_E].pressed) zoom -= 0.02;
-        
 
         if (program->keys[GLFW_KEY_U].pressed) scale_x += scale_speed;
         if (program->keys[GLFW_KEY_J].pressed) scale_x -= scale_speed;
@@ -358,6 +378,32 @@ int main() {
         if (program->keys[GLFW_KEY_7].pressed) color_boost.g -= boost_step; // - Зелёный
         if (program->keys[GLFW_KEY_9].pressed) color_boost.b -= boost_step; // -Синий
 
+        // Camera movement
+        {
+            camera.yaw += program->mouse.move.x * sensitivity * delta_time;
+            camera.pitch += program->mouse.move.y * sensitivity * delta_time;
+            camera.pitch = clamp(camera.pitch, -PI / 2, PI / 2);
+
+            Vector3 move_direction = {0};
+
+            if (program->keys[GLFW_KEY_A].pressed) move_direction.x -= 1;
+            if (program->keys[GLFW_KEY_D].pressed) move_direction.x += 1;
+            if (program->keys[GLFW_KEY_W].pressed) move_direction.z += 1;
+            if (program->keys[GLFW_KEY_S].pressed) move_direction.z -= 1;
+            if (program->keys[GLFW_KEY_Q].pressed) move_direction.y -= 1;
+            if (program->keys[GLFW_KEY_E].pressed) move_direction.y += 1;
+
+            move_direction = vec3_normalize(move_direction);
+
+            Vector3 r = vec3_multiply(camera.right, move_direction.x);
+            Vector3 u = vec3_multiply(camera.up, move_direction.y);
+            Vector3 f = vec3_multiply(camera.forward, move_direction.z);
+
+            Vector3 direction = vec3_normalize(vec3_add(r, vec3_add(u, f)));
+
+            camera.position = vec3_add(camera.position, vec3_multiply(direction, camera_move_speed * delta_time));
+        }
+
         if (color_boost.r < 0.0f) color_boost.r = 0.0f;
         if (color_boost.g < 0.0f) color_boost.g = 0.0f;
         if (color_boost.b < 0.0f) color_boost.b = 0.0f;
@@ -367,11 +413,11 @@ int main() {
         if (color_boost.b > 2.0f) color_boost.b = 2.0f;
 
         if (program->keys[GLFW_KEY_RIGHT].pressed) {
-            texture_mix += mix_step;
+            texture_mix += mix_step * delta_time;
             if (texture_mix > 1.0f) texture_mix = 1.0f;
         }
         if (program->keys[GLFW_KEY_LEFT].pressed) {
-            texture_mix -= mix_step;
+            texture_mix -= mix_step * delta_time;
             if (texture_mix < 0.0f) texture_mix = 0.0f;
         }
 
@@ -382,10 +428,34 @@ int main() {
             color_boost.r = color_boost.g = color_boost.b = 0.0f;
         }
 
+        Vector3 target = camera.position;
+        target.x += camera.forward.x;
+        target.y += camera.forward.y;
+        target.z += camera.forward.z;
+        Matrix4x4 view = mat4_look_at(camera.position, target, (Vector3) { 0, 1, 0 });
+        Matrix4x4 proj = mat4_perspective(camera.field_of_view, camera.aspect, camera.near, camera.far);
+
+        //view_proj = mat4_identity();
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                printf("%.6f\t", view.m[4 * i + j]);
+            }
+            printf("\n");
+        }
+        printf("\n");
+
+
+        //printf("Camera (%.2f, %.2f, %.2f) looking in direction (%.2f %.2f %.2f)\n", camera.position.x, camera.position.y, camera.position.z, forward.x, forward.y, forward.z);
+
+        Vector3 translation = (Vector3) { .x = 0, .y = 0, .z = 0 };
+        Vector3 rotation = (Vector3) { .x = global_rotation_x, .y = global_rotation_y, .z = global_rotation_z };
+        Vector3 scale = (Vector3) { .x = scale_x, .y = scale_y, .z = scale_z };
+        Matrix4x4 world = mat4_world(translation, rotation, scale);
+
         glViewport(0, 0, program->window_info.width, program->window_info.height);
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         switch (mode) {
             case MODE_TEXTURED: {
@@ -405,12 +475,9 @@ int main() {
             case MODE_GRADIENT: {
                 glUseProgram(shaders->gradient.id);
                 glUniform1f(shaders->gradient.time, time);
-                glUniform1f(shaders->gradient.rotation_x, global_rotation_x);
-                glUniform1f(shaders->gradient.rotation_y, global_rotation_y);
-                glUniform1f(shaders->gradient.rotation_z, global_rotation_z);
-                glUniform2f(shaders->gradient.position, pos_x, pos_y);
-                glUniform1f(shaders->gradient.zoom, zoom);
-                glUniform3f(shaders->gradient.scale, scale_x, scale_y, scale_z);
+                glUniformMatrix4fv(shaders->gradient.world, 1, true, world.m);
+                glUniformMatrix4fv(shaders->gradient.view, 1, true, view.m);
+                glUniformMatrix4fv(shaders->gradient.proj, 1, true, proj.m);
             } break;
 
             case MODE_MIX_TEXTURED: {
@@ -429,7 +496,7 @@ int main() {
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_2D, texture2);
                 glUniform1i(shaders->mix_textured.texture2, 1);
-            }
+            } break;
         }
 
         switch (figure) {
@@ -454,12 +521,29 @@ int main() {
             } break;
         }
 
+        glUseProgram(0);
+        glBindVertexArray(0);
+
         glfwSwapBuffers(program->window);
         for (int i = 0; i < GLFW_KEY_LAST; i++) {
             program->keys[i].pressed_this_frame = false;
         }
+        program->mouse.left.pressed_this_frame = false;
+        program->mouse.right.pressed_this_frame = false;
+        program->mouse.move = (Vector2) {0};
         glfwPollEvents();
+
+        time = glfwGetTime();
+        delta_time = time - last_frame_time;
+        last_frame_time = time;
     }
+
+    // Впервые в жизни я уберу за собой!
+    glDeleteProgram(shaders->gradient.id);
+    glDeleteProgram(shaders->uniform_flat_color.id);
+    glDeleteProgram(shaders->flat_color.id);
+    glDeleteBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);
+    glDeleteVertexArrays(VAOS_COUNT, vaos);
 
     close_window(program);
 }
@@ -505,6 +589,9 @@ int compile_shader(const char *shader_path) {
         assert(false);
     }
 
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
     free(vertex_shader_source);
     free(fragment_shader_source);
 
@@ -512,9 +599,9 @@ int compile_shader(const char *shader_path) {
 }
 
 void opengl_debug_message_callback(
-        GLenum source, GLenum type, GLuint id,
-        GLenum severity, GLsizei length, const GLchar *message,
-        const void *user_param
+    GLenum source, GLenum type, GLuint id,
+    GLenum severity, GLsizei length, const GLchar *message,
+    const void *user_param
 ) {
     if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
         return;
@@ -576,4 +663,30 @@ void hue_to_rgb(float hue, float* r, float* g, float* b) {
     case 4: *r = t; *g = 0.0f; *b = 1.0f; break;
     case 5: *r = 1.0f; *g = 0.0f; *b = q; break;
     }
+}
+
+float clamp(float x, float low, float high) {
+    if (x < low) {
+        return low;
+    }
+    if (x > high) {
+        return high;
+    }
+    return x;
+}
+
+Vector3 direction_from_pitch_yaw(float pitch, float yaw) {
+    Vector3 direction = {0};
+
+    direction.x = cosf(pitch) * sinf(yaw);
+    direction.y = sinf(pitch);
+    direction.z = cosf(pitch) * cosf(yaw);
+
+    return vec3_normalize(direction);
+}
+
+void camera_update(Camera *camera) {
+    camera->forward = direction_from_pitch_yaw(camera->pitch, camera->yaw);
+    camera->right = vec3_cross((Vector3){ 0, 1, 0 }, camera->forward);
+    camera->up = vec3_cross(camera->forward, camera->right);
 }

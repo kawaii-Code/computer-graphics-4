@@ -113,11 +113,25 @@ float calculate_phong_lighting(Vector3 position, Vector3 normal, Vector3 camera,
     float dot = Vector3DotProduct(normal, light);
     Vector3 reflected_light = Vector3Subtract(light, Vector3Scale(normal, 2 * dot));
 
-    float diffuse = light_source->intensity * 0.7f * fmaxf(Vector3DotProduct(normal, light), 0.0f);
-    float specular = light_source->intensity * 0.2f * fmaxf(Vector3DotProduct(view, reflected_light), 0.0f);
-    float ambient = 0.2f;
+    float diffuse = light_source->intensity * fmaxf(Vector3DotProduct(normal, light), 0.0f);
+    float total_light;
+    if (diffuse > 0.9f) {
+        total_light = 1.0f;
+    } else if (diffuse > 0.75f) {
+        total_light = 0.82f;
+    } else if (diffuse > 0.4f) {
+        total_light = 0.7f;
+    } else if (diffuse > 0.25f) {
+        total_light = 0.5f;
+    } else if (diffuse > 0.05f) {
+        total_light = 0.3f;
+    } else {
+        total_light = 0.2f;
+    }
+    //float specular = light_source->intensity * 0.2f * fmaxf(Vector3DotProduct(view, reflected_light), 0.0f);
+    //float ambient = 0.2f;
+    //float total_light = fminf(ambient + diffuse + specular, 1.0f);
 
-    float total_light = fminf(ambient + diffuse + specular, 1.0f);
     return total_light;
 }
 
@@ -370,10 +384,9 @@ void draw_textured_triangle_with_phong_lighting(ZBuffer *zbuffer,
 
                     float light = calculate_phong_lighting(worldpos, normal, camera, light_source);
 
-                    Color light_color = { 255, 0, 0 };
-                    pixel_color.r = 0.5f * (pixel_color.r + light_color.r * light);
-                    pixel_color.g = 0.5f * (pixel_color.g + light_color.g * light);
-                    pixel_color.b = 0.5f * (pixel_color.b + light_color.b * light);
+                    pixel_color.r *= light;
+                    pixel_color.g *= light;
+                    pixel_color.b *= light;
 
                     DrawPixel(x, y, pixel_color);
                     zbuffer->buffer[y * zbuffer->width + x] = depth;

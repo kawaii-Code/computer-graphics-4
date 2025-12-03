@@ -4,6 +4,7 @@ build/
 *.lib
 
 # IDE and editor settings
+.cache/
 .vscode/
 .idea/
 *.swp
