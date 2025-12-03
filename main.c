@@ -15,7 +15,7 @@
 #define CIRCLE_SEGMENTS 64
 
 const float camera_move_speed = 10.0f;
-const float sensitivity = 1.0f;
+const float sensitivity = 0.3f;
 
 float global_rotation_x = 0.0f;
 float global_rotation_y = 0.0f;
@@ -188,6 +188,9 @@ int main() {
 
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(opengl_debug_message_callback, NULL);
+
+    //glEnable(GL_CULL_FACE);
+    //glCullFace(GL_FRONT);
 
     {
         int gradient = compile_shader("shaders/gradient3D");
@@ -380,14 +383,14 @@ int main() {
 
         // Camera movement
         {
-            camera.yaw += program->mouse.move.x * sensitivity * delta_time;
+            camera.yaw -= program->mouse.move.x * sensitivity * delta_time;
             camera.pitch += program->mouse.move.y * sensitivity * delta_time;
             camera.pitch = clamp(camera.pitch, -PI / 2, PI / 2);
 
             Vector3 move_direction = {0};
 
-            if (program->keys[GLFW_KEY_A].pressed) move_direction.x -= 1;
-            if (program->keys[GLFW_KEY_D].pressed) move_direction.x += 1;
+            if (program->keys[GLFW_KEY_A].pressed) move_direction.x += 1;
+            if (program->keys[GLFW_KEY_D].pressed) move_direction.x -= 1;
             if (program->keys[GLFW_KEY_W].pressed) move_direction.z += 1;
             if (program->keys[GLFW_KEY_S].pressed) move_direction.z -= 1;
             if (program->keys[GLFW_KEY_Q].pressed) move_direction.y -= 1;
@@ -435,22 +438,19 @@ int main() {
         Matrix4x4 view = mat4_look_at(camera.position, target, (Vector3) { 0, 1, 0 });
         Matrix4x4 proj = mat4_perspective(camera.field_of_view, camera.aspect, camera.near, camera.far);
 
-        //view_proj = mat4_identity();
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
-                printf("%.6f\t", view.m[4 * i + j]);
-            }
-            printf("\n");
-        }
-        printf("\n");
-
-
-        //printf("Camera (%.2f, %.2f, %.2f) looking in direction (%.2f %.2f %.2f)\n", camera.position.x, camera.position.y, camera.position.z, forward.x, forward.y, forward.z);
-
         Vector3 translation = (Vector3) { .x = 0, .y = 0, .z = 0 };
         Vector3 rotation = (Vector3) { .x = global_rotation_x, .y = global_rotation_y, .z = global_rotation_z };
         Vector3 scale = (Vector3) { .x = scale_x, .y = scale_y, .z = scale_z };
         Matrix4x4 world = mat4_world(translation, rotation, scale);
+
+        Matrix4x4 test = mat4_multiply(mat4_multiply(proj, view), world);
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                printf("%.6f\t", test.m[4 * i + j]);
+            }
+            printf("\n");
+        }
+        printf("\n");
 
         glViewport(0, 0, program->window_info.width, program->window_info.height);
 
@@ -476,8 +476,8 @@ int main() {
                 glUseProgram(shaders->gradient.id);
                 glUniform1f(shaders->gradient.time, time);
                 glUniformMatrix4fv(shaders->gradient.world, 1, true, world.m);
-                glUniformMatrix4fv(shaders->gradient.view, 1, true, view.m);
-                glUniformMatrix4fv(shaders->gradient.proj, 1, true, proj.m);
+                glUniformMatrix4fv(shaders->gradient.view, 1, false, view.m);
+                glUniformMatrix4fv(shaders->gradient.proj, 1, false, proj.m);
             } break;
 
             case MODE_MIX_TEXTURED: {
