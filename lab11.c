@@ -30,6 +30,9 @@ float scale_speed = 0.05f;
 ColorRGB color_boost = { 0.0f, 0.0f, 0.0f };
 float boost_step = 0.1f;
 
+float texture_mix = 0.0f; 
+float mix_step = 0.05f;
+
 GradientVertex3D cube_vertices[] = {
     { { -0.5, -0.5, +0.5 }, { 0.0f, 0.0f, 0.5f } }, 
     { { -0.5, +0.5, +0.5 }, { 0.0f, 0.5f, 0.0f } }, 
@@ -136,7 +139,7 @@ GradientVertex3D tetrahedron_vertices[] = {
     { {  0.0f,  0.5f,  0.0f }, { 0.7f, 0.7f, 1.0f } }, 
 };
 
-#define CHECKER_SIZE 8  // Размер клетки в пикселях
+#define CHECKER_SIZE 8  
 #define TEX_SIZE 64 
 
 GradientVertex3D circle_vertices[CIRCLE_SEGMENTS + 2];
@@ -196,40 +199,80 @@ int main() {
         shaders->textured.scale = glGetUniformLocation(textured, "scale");
         shaders->textured.texture = glGetUniformLocation(textured, "ourTexture");
         shaders->textured.color_boost = glGetUniformLocation(textured, "colorBoost");
+
+        int mix_textured = compile_shader("shaders/mix_textured_cube");
+
+        shaders->mix_textured.id = mix_textured;
+        shaders->mix_textured.vertex_position = glGetAttribLocation(mix_textured, "aPos");
+        shaders->mix_textured.vertex_color = glGetAttribLocation(mix_textured, "aColor");
+        shaders->mix_textured.vertex_tex = glGetAttribLocation(mix_textured, "aTexCoord");
+        shaders->mix_textured.rotation_x = glGetUniformLocation(mix_textured, "rotation_x");
+        shaders->mix_textured.rotation_y = glGetUniformLocation(mix_textured, "rotation_y");
+        shaders->mix_textured.rotation_z = glGetUniformLocation(mix_textured, "rotation_z");
+        shaders->mix_textured.position = glGetUniformLocation(mix_textured, "position");
+        shaders->mix_textured.scale = glGetUniformLocation(mix_textured, "scale");
+        shaders->mix_textured.texture1 = glGetUniformLocation(mix_textured, "texture1");
+        shaders->mix_textured.texture2 = glGetUniformLocation(mix_textured, "texture2");
+        shaders->mix_textured.mix_ratio = glGetUniformLocation(mix_textured, "mixRatio");
     }
 
     GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
 
-    // Создаём массив для текстуры
     unsigned char* checker_pixels = malloc(TEX_SIZE * TEX_SIZE * 3);
 
     for (int y = 0; y < TEX_SIZE; y++) {
         for (int x = 0; x < TEX_SIZE; x++) {
             int index = (y * TEX_SIZE + x) * 3;
 
-            // Определяем цвет клетки
             int cellX = x / CHECKER_SIZE;
             int cellY = y / CHECKER_SIZE;
 
             if ((cellX + cellY) % 2 == 0) {
-                // Белая клетка
-                checker_pixels[index] = 255;     // R
-                checker_pixels[index + 1] = 255; // G
-                checker_pixels[index + 2] = 255; // B
+                checker_pixels[index] = 255;     
+                checker_pixels[index + 1] = 255; 
+                checker_pixels[index + 2] = 255;
             }
             else {
-                // Чёрная клетка
-                checker_pixels[index] = 0;       // R
-                checker_pixels[index + 1] = 0;   // G
-                checker_pixels[index + 2] = 0;   // B
+                checker_pixels[index] = 0;       
+                checker_pixels[index + 1] = 0;   
+                checker_pixels[index + 2] = 0;   
             }
         }
     }
-
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, TEX_SIZE, TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, checker_pixels);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     free(checker_pixels);
+
+    GLuint texture1;
+    glGenTextures(1, &texture1);
+    glBindTexture(GL_TEXTURE_2D, texture1);
+    unsigned char chessboard[] = {
+        255,255,255,  0,0,0,  255,255,255,  0,0,0,
+        0,0,0,  255,255,255,  0,0,0,  255,255,255,
+        255,255,255,  0,0,0,  255,255,255,  0,0,0,
+        0,0,0,  255,255,255,  0,0,0,  255,255,255,
+    };
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, chessboard);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    GLuint texture2;
+    glGenTextures(1, &texture2);
+    glBindTexture(GL_TEXTURE_2D, texture2);
+    unsigned char stripes[] = {
+        255,0,0,  255,0,0,  0,255,0,  0,255,0,
+        255,0,0,  255,0,0,  0,255,0,  0,255,0,
+        255,0,0,  255,0,0,  0,255,0,  0,255,0,
+        255,0,0,  255,0,0,  0,255,0,  0,255,0,
+    };
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, stripes);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -280,6 +323,7 @@ int main() {
 
         if (program->keys[GLFW_KEY_1].pressed_this_frame) mode = MODE_GRADIENT;
         if (program->keys[GLFW_KEY_2].pressed_this_frame) mode = MODE_TEXTURED;
+        if (program->keys[GLFW_KEY_3].pressed_this_frame) mode = MODE_MIX_TEXTURED;
 
         if (program->keys[GLFW_KEY_Z].pressed_this_frame) figure = TETRAHEDRON;
         if (program->keys[GLFW_KEY_X].pressed_this_frame) figure = CUBE;
@@ -306,13 +350,13 @@ int main() {
         if (program->keys[GLFW_KEY_O].pressed) scale_z += scale_speed;
         if (program->keys[GLFW_KEY_L].pressed) scale_z -= scale_speed;
 
-        if (program->keys[GLFW_KEY_3].pressed) color_boost.r += boost_step; // + Красный
-        if (program->keys[GLFW_KEY_5].pressed) color_boost.g += boost_step; // + Зелёный
-        if (program->keys[GLFW_KEY_7].pressed) color_boost.b += boost_step; // + Синий
+        if (program->keys[GLFW_KEY_4].pressed) color_boost.r += boost_step; // + Красный
+        if (program->keys[GLFW_KEY_6].pressed) color_boost.g += boost_step; // + Зелёный
+        if (program->keys[GLFW_KEY_8].pressed) color_boost.b += boost_step; // + Синий
 
-        if (program->keys[GLFW_KEY_4].pressed) color_boost.r -= boost_step; // - Красный
-        if (program->keys[GLFW_KEY_6].pressed) color_boost.g -= boost_step; // - Зелёный
-        if (program->keys[GLFW_KEY_8].pressed) color_boost.b -= boost_step; // -Синий
+        if (program->keys[GLFW_KEY_5].pressed) color_boost.r -= boost_step; // - Красный
+        if (program->keys[GLFW_KEY_7].pressed) color_boost.g -= boost_step; // - Зелёный
+        if (program->keys[GLFW_KEY_9].pressed) color_boost.b -= boost_step; // -Синий
 
         if (color_boost.r < 0.0f) color_boost.r = 0.0f;
         if (color_boost.g < 0.0f) color_boost.g = 0.0f;
@@ -321,6 +365,15 @@ int main() {
         if (color_boost.r > 2.0f) color_boost.r = 2.0f;
         if (color_boost.g > 2.0f) color_boost.g = 2.0f;
         if (color_boost.b > 2.0f) color_boost.b = 2.0f;
+
+        if (program->keys[GLFW_KEY_RIGHT].pressed) {
+            texture_mix += mix_step;
+            if (texture_mix > 1.0f) texture_mix = 1.0f;
+        }
+        if (program->keys[GLFW_KEY_LEFT].pressed) {
+            texture_mix -= mix_step;
+            if (texture_mix < 0.0f) texture_mix = 0.0f;
+        }
 
         if (program->keys[GLFW_KEY_R].pressed_this_frame) {
             global_rotation_x = global_rotation_y = global_rotation_z = 0.0f;
@@ -332,9 +385,7 @@ int main() {
         glViewport(0, 0, program->window_info.width, program->window_info.height);
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 
         switch (mode) {
             case MODE_TEXTURED: {
@@ -361,6 +412,24 @@ int main() {
                 glUniform1f(shaders->gradient.zoom, zoom);
                 glUniform3f(shaders->gradient.scale, scale_x, scale_y, scale_z);
             } break;
+
+            case MODE_MIX_TEXTURED: {
+                glUseProgram(shaders->mix_textured.id);
+                glUniform1f(shaders->mix_textured.rotation_x, global_rotation_x);
+                glUniform1f(shaders->mix_textured.rotation_y, global_rotation_y);
+                glUniform1f(shaders->mix_textured.rotation_z, global_rotation_z);
+                glUniform2f(shaders->mix_textured.position, pos_x, pos_y);
+                glUniform3f(shaders->mix_textured.scale, scale_x, scale_y, scale_z);
+                glUniform1f(shaders->mix_textured.mix_ratio, texture_mix);
+
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, texture1);
+                glUniform1i(shaders->mix_textured.texture1, 0);
+
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, texture2);
+                glUniform1i(shaders->mix_textured.texture2, 1);
+            }
         }
 
         switch (figure) {

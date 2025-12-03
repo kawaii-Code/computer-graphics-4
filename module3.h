@@ -15,6 +15,7 @@ enum {
     MODE_UNIFORM_FLAT_COLOR,
     MODE_GRADIENT,
     MODE_TEXTURED,
+    MODE_MIX_TEXTURED,
 };
 
 enum {
@@ -22,7 +23,6 @@ enum {
     TETRAHEDRON,
     CIRCLE,
     TEXTURED_CUBE,
-    TWO_TEXTURED_CUBE,
     VERTEX_BUFFERS_COUNT,
 };
 
@@ -31,7 +31,6 @@ enum {
     TETRAHEDRON_VAO,
     CIRCLE_VAO,
     TEXTURED_CUBE_VAO,
-    TWO_TEXTURED_CUBE_VAO,
     VAOS_COUNT,
 };
 
@@ -123,10 +122,26 @@ typedef struct {
 }TexturedShader;
 
 typedef struct {
+    int id;
+    int vertex_position;
+    int vertex_color;
+    int vertex_tex;
+    int rotation_x;
+    int rotation_y;
+    int rotation_z;
+    int position;
+    int scale;
+    int texture1;      
+    int texture2;     
+    int mix_ratio;    
+} MixTexturedShader;
+
+typedef struct {
     FlatColorShader flat_color;
     UniformColorShader uniform_flat_color;
     GradientShader  gradient;
     TexturedShader textured;
+    MixTexturedShader mix_textured;
 } Shaders;
 
 typedef struct {
