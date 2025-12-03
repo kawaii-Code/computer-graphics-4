@@ -209,13 +209,11 @@ int main() {
         shaders->textured.vertex_position = glGetAttribLocation(textured, "aPos");
         shaders->textured.vertex_color = glGetAttribLocation(textured, "aColor");
         shaders->textured.vertex_tex = glGetAttribLocation(textured, "aTexCoord");
-        shaders->textured.rotation_x = glGetUniformLocation(textured, "rotation_x");
-        shaders->textured.rotation_y = glGetUniformLocation(textured, "rotation_y");
-        shaders->textured.rotation_z = glGetUniformLocation(textured, "rotation_z");
-        shaders->textured.position = glGetUniformLocation(textured, "position");
-        shaders->textured.scale = glGetUniformLocation(textured, "scale");
         shaders->textured.texture = glGetUniformLocation(textured, "ourTexture");
         shaders->textured.color_boost = glGetUniformLocation(textured, "colorBoost");
+        shaders->textured.view = glGetUniformLocation(textured, "view");
+        shaders->textured.proj = glGetUniformLocation(textured, "proj");
+        shaders->textured.world = glGetUniformLocation(textured, "world");
 
         int mix_textured = compile_shader("shaders/mix_textured_cube");
 
@@ -223,14 +221,12 @@ int main() {
         shaders->mix_textured.vertex_position = glGetAttribLocation(mix_textured, "aPos");
         shaders->mix_textured.vertex_color = glGetAttribLocation(mix_textured, "aColor");
         shaders->mix_textured.vertex_tex = glGetAttribLocation(mix_textured, "aTexCoord");
-        shaders->mix_textured.rotation_x = glGetUniformLocation(mix_textured, "rotation_x");
-        shaders->mix_textured.rotation_y = glGetUniformLocation(mix_textured, "rotation_y");
-        shaders->mix_textured.rotation_z = glGetUniformLocation(mix_textured, "rotation_z");
-        shaders->mix_textured.position = glGetUniformLocation(mix_textured, "position");
-        shaders->mix_textured.scale = glGetUniformLocation(mix_textured, "scale");
         shaders->mix_textured.texture1 = glGetUniformLocation(mix_textured, "texture1");
         shaders->mix_textured.texture2 = glGetUniformLocation(mix_textured, "texture2");
         shaders->mix_textured.mix_ratio = glGetUniformLocation(mix_textured, "mixRatio");
+        shaders->mix_textured.view = glGetUniformLocation(mix_textured, "view");
+        shaders->mix_textured.proj = glGetUniformLocation(mix_textured, "proj");
+        shaders->mix_textured.world = glGetUniformLocation(mix_textured, "world");
     }
 
     GLuint texture;
@@ -443,15 +439,6 @@ int main() {
         Vector3 scale = (Vector3) { .x = scale_x, .y = scale_y, .z = scale_z };
         Matrix4x4 world = mat4_world(translation, rotation, scale);
 
-        Matrix4x4 test = mat4_multiply(mat4_multiply(proj, view), world);
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
-                printf("%.6f\t", test.m[4 * i + j]);
-            }
-            printf("\n");
-        }
-        printf("\n");
-
         glViewport(0, 0, program->window_info.width, program->window_info.height);
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -460,16 +447,13 @@ int main() {
         switch (mode) {
             case MODE_TEXTURED: {
                 glUseProgram(shaders->textured.id);
-                glUniform1f(shaders->textured.rotation_x, global_rotation_x);
-                glUniform1f(shaders->textured.rotation_y, global_rotation_y);
-                glUniform1f(shaders->textured.rotation_z, global_rotation_z);
-                glUniform2f(shaders->textured.position, pos_x, pos_y);
-                glUniform3f(shaders->textured.scale, scale_x, scale_y, scale_z);
                 glUniform3f(shaders->textured.color_boost, color_boost.r, color_boost.g, color_boost.b);
-
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture);
                 glUniform1i(shaders->textured.texture, 0);
+                glUniformMatrix4fv(shaders->gradient.world, 1, true, world.m);
+                glUniformMatrix4fv(shaders->gradient.view, 1, false, view.m);
+                glUniformMatrix4fv(shaders->gradient.proj, 1, false, proj.m);
             } break;
 
             case MODE_GRADIENT: {
@@ -482,17 +466,13 @@ int main() {
 
             case MODE_MIX_TEXTURED: {
                 glUseProgram(shaders->mix_textured.id);
-                glUniform1f(shaders->mix_textured.rotation_x, global_rotation_x);
-                glUniform1f(shaders->mix_textured.rotation_y, global_rotation_y);
-                glUniform1f(shaders->mix_textured.rotation_z, global_rotation_z);
-                glUniform2f(shaders->mix_textured.position, pos_x, pos_y);
-                glUniform3f(shaders->mix_textured.scale, scale_x, scale_y, scale_z);
                 glUniform1f(shaders->mix_textured.mix_ratio, texture_mix);
-
+                glUniformMatrix4fv(shaders->mix_textured.world, 1, true, world.m);
+                glUniformMatrix4fv(shaders->mix_textured.view, 1, false, view.m);
+                glUniformMatrix4fv(shaders->mix_textured.proj, 1, false, proj.m);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture1);
                 glUniform1i(shaders->mix_textured.texture1, 0);
-
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_2D, texture2);
                 glUniform1i(shaders->mix_textured.texture2, 1);

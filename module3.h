@@ -86,12 +86,6 @@ typedef struct {
     int id;
     int vertex_position;
     int vertex_color;
-    int rotation_x;  
-    int rotation_y;  
-    int rotation_z;
-    int position;
-    int zoom;
-    int scale;
     int world;
     int view_proj;
     int view;
@@ -104,28 +98,24 @@ typedef struct {
     int vertex_position;
     int vertex_color;
     int vertex_tex;
-    float rotation_x;
-    float rotation_y;
-    float rotation_z;
-    float position;
-    float scale;
+    int view;
+    int proj;
+    int world;
     int texture;
     int color_boost;
-}TexturedShader;
+} TexturedShader;
 
 typedef struct {
     int id;
     int vertex_position;
     int vertex_color;
     int vertex_tex;
-    int rotation_x;
-    int rotation_y;
-    int rotation_z;
-    int position;
-    int scale;
-    int texture1;      
-    int texture2;     
-    int mix_ratio;    
+    int texture1;
+    int texture2;
+    int mix_ratio;
+    int view;
+    int proj;
+    int world;
 } MixTexturedShader;
 
 typedef struct {
