@@ -15,6 +15,8 @@ enum {
     MODE_GRADIENT,
     MODE_TEXTURED,
     MODE_MIX_TEXTURED,
+    MODE_SOLAR_SYSTEM,
+    MODE_MULTIPLE_MODELS,
 };
 
 enum {
@@ -119,11 +121,22 @@ typedef struct {
 } MixTexturedShader;
 
 typedef struct {
+    int id;
+    int vertex_position;
+    int vertex_tex;
+    int texture;
+    int view;
+    int proj;
+    int world;
+} OBJTexturedShader;
+
+typedef struct {
     FlatColorShader flat_color;
     UniformColorShader uniform_flat_color;
     GradientShader  gradient;
     TexturedShader textured;
     MixTexturedShader mix_textured;
+    OBJTexturedShader obj_textured;
 } Shaders;
 
 typedef struct {
@@ -169,5 +182,15 @@ void glfw_callback_mouse_button(GLFWwindow* window, int button, int action, int 
 void glfw_callback_cursor_pos(GLFWwindow* window, double xpos, double ypos);
 
 char *read_entire_file(const char *filename);
+
+// Функции для работы с камерой
+void camera_update(Camera *camera);
+Vector3 direction_from_pitch_yaw(float pitch, float yaw);
+float clamp(float x, float low, float high);
+
+// Callback для OpenGL debug
+void opengl_debug_message_callback(GLenum source, GLenum type, GLuint id,
+                                   GLenum severity, GLsizei length,
+                                   const GLchar *message, const void *user_param);
 
 #endif // MODULE_3_H_

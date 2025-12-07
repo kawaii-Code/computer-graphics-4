@@ -11,6 +11,16 @@ Vector3 vec3_add(Vector3 a, Vector3 b) {
     return result;
 }
 
+Vector3 vec3_subtract(Vector3 a, Vector3 b) {
+    Vector3 result;
+
+    result.x = a.x - b.x;
+    result.y = a.y - b.y;
+    result.z = a.z - b.z;
+
+    return result;
+}
+
 Vector3 vec3_negate(Vector3 a) {
     Vector3 result;
 
@@ -23,6 +33,10 @@ Vector3 vec3_negate(Vector3 a) {
 
 float vec3_dot(Vector3 a, Vector3 b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+float vec3_length(Vector3 v) {
+    return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
 Vector3 vec3_multiply(Vector3 a, float b) {

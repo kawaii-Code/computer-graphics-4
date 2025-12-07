@@ -40,8 +40,10 @@ typedef struct {
 } Matrix4x4;
 
 Vector3 vec3_add(Vector3 a, Vector3 b);
+Vector3 vec3_subtract(Vector3 a, Vector3 b);
 Vector3 vec3_multiply(Vector3 a, float b);
 float   vec3_dot(Vector3 a, Vector3 b);
+float   vec3_length(Vector3 v);
 Vector3 vec3_cross(Vector3 a, Vector3 b);
 Vector3 vec3_normalize(Vector3 v);
 Vector3 vec3_negate(Vector3 a);
