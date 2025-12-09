@@ -367,12 +367,10 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // ========== ЗАГРУЗКА OBJ МОДЕЛЕЙ ==========
     printf("\n🌌 Загрузка моделей для солнечной системы...\n");
 
     OBJModel model_bomb, model_corona, model_sphinx, model_skull;
 
-    // Загружаем бомбу - пробуем разные пути
     const char *bomb_paths[] = {
         "models/81-bomb_shading_v005_fbx_obj/bomb_shading_v005.obj",
         "../models/81-bomb_shading_v005_fbx_obj/bomb_shading_v005.obj"
@@ -382,7 +380,6 @@ int main() {
     }
     setup_obj_model_buffers(&model_bomb);
 
-    // Загружаем корону - пробуем разные пути
     const char *corona_paths[] = {
         "models/Corona/Corona.obj",
         "../models/Corona/Corona.obj"
@@ -392,7 +389,6 @@ int main() {
     }
     setup_obj_model_buffers(&model_corona);
 
-    // Загружаем сфинкса - пробуем разные пути
     const char *sphinx_paths[] = {
         "models/10085_egypt_sphinx_iterations-2.obj",
         "../models/10085_egypt_sphinx_iterations-2.obj"
@@ -402,7 +398,6 @@ int main() {
     }
     setup_obj_model_buffers(&model_sphinx);
 
-    // Загружаем череп - пробуем разные пути
     const char *skull_paths[] = {
         "models/skull/Skull.obj",
         "../models/skull/Skull.obj"
@@ -414,7 +409,6 @@ int main() {
 
     printf("🎉 Все модели загружены успешно!\n\n");
 
-    // ========== ЗАГРУЗКА ТЕКСТУР ДЛЯ МОДЕЛЕЙ ==========
     printf("🎨 Загрузка текстур для моделей...\n");
 
     GLuint texture_corona = load_texture_from_file("models/Corona/BotellaText.jpg");
@@ -432,12 +426,7 @@ int main() {
         texture_skull = load_texture_from_file("../models/skull/skull.jpg");
     }
 
-    // Создаём однотонную текстуру для бомб (тёмно-серый металлический цвет)
     GLuint texture_bomb = create_solid_color_texture(80, 80, 85);
-
-    printf("🎉 Все текстуры загружены!\n\n");
-    // ===================================================
-    // ==========================================
 
     int mode = MODE_GRADIENT;
     int figure = CUBE;
@@ -452,8 +441,8 @@ int main() {
         if (program->keys[GLFW_KEY_1].pressed_this_frame) mode = MODE_GRADIENT;
         if (program->keys[GLFW_KEY_2].pressed_this_frame) mode = MODE_TEXTURED;
         if (program->keys[GLFW_KEY_3].pressed_this_frame) mode = MODE_MIX_TEXTURED;
-        if (program->keys[GLFW_KEY_4].pressed_this_frame) mode = MODE_SOLAR_SYSTEM; // Солнечная система!
-        if (program->keys[GLFW_KEY_5].pressed_this_frame) mode = MODE_MULTIPLE_MODELS; // Множественные модели!
+        if (program->keys[GLFW_KEY_4].pressed_this_frame) mode = MODE_SOLAR_SYSTEM;
+        if (program->keys[GLFW_KEY_5].pressed_this_frame) mode = MODE_MULTIPLE_MODELS;
 
         if (program->keys[GLFW_KEY_Z].pressed_this_frame) figure = TETRAHEDRON;
         if (program->keys[GLFW_KEY_X].pressed_this_frame) figure = CUBE;
@@ -487,7 +476,6 @@ int main() {
         if (program->keys[GLFW_KEY_7].pressed) color_boost.g -= boost_step; // - Зелёный
         if (program->keys[GLFW_KEY_9].pressed) color_boost.b -= boost_step; // -Синий
 
-        // Camera movement
         {
             camera.yaw -= program->mouse.move.x * sensitivity * delta_time;
             camera.pitch += program->mouse.move.y * sensitivity * delta_time;
@@ -588,25 +576,19 @@ int main() {
             } break;
 
             case MODE_SOLAR_SYSTEM: {
-                // Отключаем смешивание (blending) для непрозрачных объектов
                 glDisable(GL_BLEND);
 
-                // Включаем тест глубины для правильного отображения перекрывающихся объектов
                 glEnable(GL_DEPTH_TEST);
                 glDepthFunc(GL_LESS);
 
-                // Отключаем отсечение задних граней - важно для корректной отрисовки OBJ моделей
                 glDisable(GL_CULL_FACE);
 
-                // Если включено отсечение, указываем правильную ориентацию
-                glFrontFace(GL_CCW); // Counter-clockwise - стандартная ориентация для OBJ
+                glFrontFace(GL_CCW);
 
-                // Используем специальный шейдер для OBJ моделей (без цвета вершин)
                 glUseProgram(shaders->obj_textured.id);
                 glUniformMatrix4fv(shaders->obj_textured.view, 1, false, view.m);
                 glUniformMatrix4fv(shaders->obj_textured.proj, 1, false, proj.m);
 
-                // 1. Центральное "Солнце" - КОРОНА с ТЕКСТУРОЙ
                 {
                     glActiveTexture(GL_TEXTURE0);
                     glBindTexture(GL_TEXTURE_2D, texture_corona);
@@ -621,13 +603,10 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_corona.vertex_count);
                 }
 
-                // ========== ОДНА МОДЕЛЬ (БОМБА), 5+ ЭКЗЕМПЛЯРОВ ==========
-                // Используем однотонную текстуру для бомб (металлический серый)
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture_bomb);
                 glUniform1i(shaders->obj_textured.texture, 0);
 
-                // 2. БОМБА #1 - Близкая орбита, быстрая
                 {
                     float orbit_radius = 4.0f;
                     float orbit_speed = 1.5f;
@@ -644,7 +623,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
                 }
 
-                // 3. БОМБА #2 - Средняя орбита
                 {
                     float orbit_radius = 6.5f;
                     float orbit_speed = 1.0f;
@@ -662,7 +640,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
                 }
 
-                // 4. БОМБА #3 - Дальняя орбита, маленькая
                 {
                     float orbit_radius = 9.0f;
                     float orbit_speed = 0.7f;
@@ -680,7 +657,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
                 }
 
-                // 5. БОМБА #4 - Очень дальняя орбита, медленная
                 {
                     float orbit_radius = 11.5f;
                     float orbit_speed = 0.5f;
@@ -698,7 +674,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
                 }
 
-                // 6. БОМБА #5 - Самая дальняя орбита
                 {
                     float orbit_radius = 14.0f;
                     float orbit_speed = 0.35f;
@@ -716,7 +691,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
                 }
 
-                // 7. БОМБА #6 - С покачиванием вверх-вниз (БОНУС!)
                 {
                     float orbit_radius = 8.0f;
                     float orbit_speed = 0.9f;
@@ -736,12 +710,10 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
                 }
 
-                // ========== ДОБАВЛЯЕМ СФИНКСА С ТЕКСТУРОЙ (для разнообразия) ==========
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture_sphinx);
                 glUniform1i(shaders->obj_textured.texture, 0);
 
-                // 8. СФИНКС - Средняя орбита с текстурой
                 {
                     float orbit_radius = 7.0f;
                     float orbit_speed = 0.8f;
@@ -759,12 +731,10 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_sphinx.vertex_count);
                 }
 
-                // ========== ДОБАВЛЯЕМ ЧЕРЕПА С ТЕКСТУРОЙ 💀 ==========
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture_skull);
                 glUniform1i(shaders->obj_textured.texture, 0);
 
-                // 9. ЧЕРЕП #1 - Ближняя орбита, быстрый
                 {
                     float orbit_radius = 5.5f;
                     float orbit_speed = 1.3f;
@@ -782,7 +752,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
                 }
 
-                // 10. ЧЕРЕП #2 - Дальняя орбита, медленный
                 {
                     float orbit_radius = 10.0f;
                     float orbit_speed = 0.6f;
@@ -800,7 +769,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
                 }
 
-                // 11. ЧЕРЕП #3 - Очень дальняя орбита с покачиванием
                 {
                     float orbit_radius = 12.5f;
                     float orbit_speed = 0.4f;
@@ -820,16 +788,11 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
                 }
 
-                // Не рисуем одну фигуру, а несколько - это и есть солнечная система!
                 glUseProgram(0);
                 glBindVertexArray(0);
-                goto skip_single_figure;
             } break;
 
             case MODE_MULTIPLE_MODELS: {
-                // ========== СЦЕНА С МНОЖЕСТВЕННЫМИ ЭКЗЕМПЛЯРАМИ ОДНОЙ МОДЕЛИ ==========
-                // Загружаем модель ОДИН РАЗ, отрисовываем МНОГО РАЗ в разных позициях!
-
                 glDisable(GL_BLEND);
                 glEnable(GL_DEPTH_TEST);
                 glDepthFunc(GL_LESS);
@@ -840,14 +803,10 @@ int main() {
                 glUniformMatrix4fv(shaders->obj_textured.view, 1, false, view.m);
                 glUniformMatrix4fv(shaders->obj_textured.proj, 1, false, proj.m);
 
-                // Используем текстуру черепа для всех экземпляров
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture_skull);
                 glUniform1i(shaders->obj_textured.texture, 0);
 
-                // ========== ОТРИСОВЫВАЕМ 8 ЧЕРЕПОВ В РАЗНЫХ МЕСТАХ ==========
-
-                // 1. ЧЕРЕП В ЦЕНТРЕ - Вращается на месте
                 {
                     Matrix4x4 world = mat4_identity();
                     world = mat4_multiply(world, mat4_translation((Vector3){0.0f, 0.0f, 0.0f}));
@@ -859,7 +818,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
                 }
 
-                // 2. ЧЕРЕП СЛЕВА - Маленький, быстро вращается
                 {
                     Matrix4x4 world = mat4_identity();
                     world = mat4_multiply(world, mat4_translation((Vector3){-3.0f, 0.0f, 0.0f}));
@@ -872,7 +830,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
                 }
 
-                // 3. ЧЕРЕП СПРАВА - Большой, медленно вращается
                 {
                     Matrix4x4 world = mat4_identity();
                     world = mat4_multiply(world, mat4_translation((Vector3){3.0f, 0.0f, 0.0f}));
@@ -884,7 +841,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
                 }
 
-                // 4. ЧЕРЕП СВЕРХУ - Парит над сценой
                 {
                     Matrix4x4 world = mat4_identity();
                     world = mat4_multiply(world, mat4_translation((Vector3){0.0f, 3.0f, 0.0f}));
@@ -897,7 +853,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
                 }
 
-                // 5. ЧЕРЕП СНИЗУ - "Смотрит" вверх
                 {
                     Matrix4x4 world = mat4_identity();
                     world = mat4_multiply(world, mat4_translation((Vector3){0.0f, -2.5f, 0.0f}));
@@ -910,7 +865,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
                 }
 
-                // 6. ЧЕРЕП СПЕРЕДИ СЛЕВА - Покачивается
                 {
                     float bob = sinf(time * 2.0f) * 0.5f;
                     Matrix4x4 world = mat4_identity();
@@ -924,7 +878,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
                 }
 
-                // 7. ЧЕРЕП СПЕРЕДИ СПРАВА - Наклонен
                 {
                     Matrix4x4 world = mat4_identity();
                     world = mat4_multiply(world, mat4_translation((Vector3){2.0f, 1.0f, 2.0f}));
@@ -937,7 +890,6 @@ int main() {
                     glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
                 }
 
-                // 8. ЧЕРЕП СЗАДИ - Вращается по кругу
                 {
                     float radius = 2.5f;
                     float angle = time * 0.8f;
@@ -956,7 +908,6 @@ int main() {
 
                 glUseProgram(0);
                 glBindVertexArray(0);
-                goto skip_single_figure;
             } break;
         }
 
@@ -982,7 +933,6 @@ int main() {
             } break;
         }
 
-    skip_single_figure: // Метка для пропуска в режиме солнечной системы
         glUseProgram(0);
         glBindVertexArray(0);
 
@@ -1002,7 +952,6 @@ int main() {
 
     // Впервые в жизни я уберу за собой!
 
-    // Освобождаем OBJ модели
     printf("\n🧹 Освобождение ресурсов...\n");
     free_obj_model(&model_bomb);
     free_obj_model(&model_corona);
@@ -1010,7 +959,6 @@ int main() {
     free_obj_model(&model_skull);
     printf("✅ Модели освобождены\n");
 
-    // Освобождаем текстуры
     glDeleteTextures(1, &texture_corona);
     glDeleteTextures(1, &texture_sphinx);
     glDeleteTextures(1, &texture_skull);
@@ -1026,9 +974,6 @@ int main() {
     close_window(program);
 }
 
-// Передавайте сюда имя файла БЕЗ расширения.
-// Сами шейдеры должны быть с расширениями .vs для вершинного, .fs для фрагментного.
-// Ну, не дети уже, сами разберетесь 🏅
 int compile_shader(const char *shader_path) {
     char log[256];
     int log_length;
@@ -1076,19 +1021,16 @@ int compile_shader(const char *shader_path) {
     return shader;
 }
 
-// Функция создания однотонной текстуры
 GLuint create_solid_color_texture(unsigned char r, unsigned char g, unsigned char b) {
     GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
 
-    // Настройки текстуры
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    // Создаём однотонное изображение 1x1 пиксель
     unsigned char pixel[3] = {r, g, b};
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel);
 
@@ -1097,7 +1039,6 @@ GLuint create_solid_color_texture(unsigned char r, unsigned char g, unsigned cha
     return texture;
 }
 
-// Функция загрузки текстуры из файла изображения
 GLuint load_texture_from_file(const char *path) {
     GLuint texture;
     glGenTextures(1, &texture);
@@ -1115,11 +1056,9 @@ GLuint load_texture_from_file(const char *path) {
     unsigned char *data = stbi_load(path, &width, &height, &channels, STBI_rgb);
 
     if (data) {
-        // Всегда используем RGB формат (без альфа-канала) для непрозрачных объектов
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
-        printf("✅ Текстура загружена: %s (%dx%d, %d каналов → RGB)\n", path, width, height, channels);
     } else {
         fprintf(stderr, "❌ Не удалось загрузить текстуру: %s\n", path);
         fprintf(stderr, "   Причина: %s\n", stbi_failure_reason());

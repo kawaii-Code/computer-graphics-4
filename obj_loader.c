@@ -64,7 +64,6 @@ static void add_vertex(OBJData *data, OBJVertex vertex) {
 }
 
 bool load_obj_model(const char *filename, OBJModel *model) {
-    // Отладочная информация
     char cwd[1024];
     if (getcwd(cwd, sizeof(cwd)) != NULL) {
         printf("📂 Текущая рабочая директория: %s\n", cwd);
@@ -83,20 +82,16 @@ bool load_obj_model(const char *filename, OBJModel *model) {
     char line[256];
     while (fgets(line, sizeof(line), file)) {
         if (line[0] == 'v' && line[1] == ' ') {
-            // Позиция вершины
             Vector3 pos;
             sscanf(line, "v %f %f %f", &pos.x, &pos.y, &pos.z);
             add_position(&data, pos);
         }
         else if (line[0] == 'v' && line[1] == 't') {
-            // Текстурная координата
             Vector2 tc;
             sscanf(line, "vt %f %f", &tc.x, &tc.y);
             add_tex_coord(&data, tc);
         }
         else if (line[0] == 'f' && line[1] == ' ') {
-            // Грань (может быть треугольник, квадрат или полигон)
-            // Парсим все вершины грани
             int indices_v[16];   // Позиции
             int indices_vt[16];  // Текстурные координаты
             int indices_vn[16];  // Нормали
@@ -104,12 +99,10 @@ bool load_obj_model(const char *filename, OBJModel *model) {
 
             char *ptr = line + 2; // Пропускаем "f "
 
-            // Парсим все вершины в грани
             while (*ptr && vertex_count_in_face < 16) {
                 int v = 0, vt = 0, vn = 0;
                 int scanned = 0;
 
-                // Пробуем формат v/vt/vn
                 if (sscanf(ptr, "%d/%d/%d%n", &v, &vt, &vn, &scanned) == 3) {
                     indices_v[vertex_count_in_face] = v;
                     indices_vt[vertex_count_in_face] = vt;
@@ -117,7 +110,6 @@ bool load_obj_model(const char *filename, OBJModel *model) {
                     vertex_count_in_face++;
                     ptr += scanned;
                 }
-                // Пробуем формат v/vt
                 else if (sscanf(ptr, "%d/%d%n", &v, &vt, &scanned) == 2) {
                     indices_v[vertex_count_in_face] = v;
                     indices_vt[vertex_count_in_face] = vt;
@@ -125,7 +117,6 @@ bool load_obj_model(const char *filename, OBJModel *model) {
                     vertex_count_in_face++;
                     ptr += scanned;
                 }
-                // Пробуем формат v//vn
                 else if (sscanf(ptr, "%d//%d%n", &v, &vn, &scanned) == 2) {
                     indices_v[vertex_count_in_face] = v;
                     indices_vt[vertex_count_in_face] = 0;
@@ -133,7 +124,6 @@ bool load_obj_model(const char *filename, OBJModel *model) {
                     vertex_count_in_face++;
                     ptr += scanned;
                 }
-                // Формат только v
                 else if (sscanf(ptr, "%d%n", &v, &scanned) == 1) {
                     indices_v[vertex_count_in_face] = v;
                     indices_vt[vertex_count_in_face] = 0;
@@ -145,7 +135,6 @@ bool load_obj_model(const char *filename, OBJModel *model) {
                     break;
                 }
 
-                // Пропускаем пробелы
                 while (*ptr == ' ' || *ptr == '\t') ptr++;
             }
 
@@ -153,7 +142,6 @@ bool load_obj_model(const char *filename, OBJModel *model) {
             // Для n вершин создаём (n-2) треугольника
             if (vertex_count_in_face >= 3) {
                 for (int i = 1; i < vertex_count_in_face - 1; i++) {
-                    // Треугольник: 0, i, i+1
                     OBJVertex verts[3];
 
                     for (int j = 0; j < 3; j++) {
@@ -178,7 +166,6 @@ bool load_obj_model(const char *filename, OBJModel *model) {
 
     fclose(file);
 
-    // Копируем финальные данные в модель
     model->vertices = data.vertices;
     model->vertex_count = data.vertex_count;
     model->vao = 0;
@@ -228,13 +215,11 @@ void setup_obj_model_buffers(OBJModel *model) {
                  model->vertices,
                  GL_STATIC_DRAW);
 
-    // Позиция (location = 0)
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
                          sizeof(OBJVertex),
                          (void*)0);
 
-    // Текстурные координаты (location = 1)
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
                          sizeof(OBJVertex),

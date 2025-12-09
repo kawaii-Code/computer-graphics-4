@@ -16,13 +16,10 @@ typedef struct {
     unsigned int vbo;
 } OBJModel;
 
-// Загружает модель из OBJ файла
 bool load_obj_model(const char *filename, OBJModel *model);
 
-// Освобождает память модели
 void free_obj_model(OBJModel *model);
 
-// Создаёт VAO/VBO для модели
 void setup_obj_model_buffers(OBJModel *model);
 
 #endif // OBJ_LOADER_H
