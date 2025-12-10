@@ -23,22 +23,3 @@ elseif(WIN32)
 else()
     target_link_libraries(${PROJECT_NAME} m)
 endif()
-
-# Солнечная система
-add_executable(solar_system solar_system.c linalg.c glfw_boilerplate.c obj_loader.c ${glad_files})
-
-target_include_directories(solar_system PUBLIC third_party)
-
-target_link_directories(solar_system PUBLIC third_party)
-target_link_libraries(solar_system glfw)
-
-if (APPLE)
-    target_link_libraries(solar_system "-framework IOKit")
-    target_link_libraries(solar_system "-framework Cocoa")
-    target_link_libraries(solar_system "-framework OpenGL")
-elseif(WIN32)
-    target_link_libraries(solar_system winmm)
-else()
-    target_link_libraries(solar_system m)
-endif()
-

@@ -64,15 +64,9 @@ static void add_vertex(OBJData *data, OBJVertex vertex) {
 }
 
 bool load_obj_model(const char *filename, OBJModel *model) {
-    char cwd[1024];
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        printf("📂 Текущая рабочая директория: %s\n", cwd);
-    }
-    printf("📄 Попытка загрузить: %s\n", filename);
-
     FILE *file = fopen(filename, "r");
     if (!file) {
-        fprintf(stderr, "❌ Не удалось открыть OBJ файл: %s\n", filename);
+        fprintf(stderr, "не удалось открыть OBJ файл: %s\n", filename);
         return false;
     }
 
@@ -171,13 +165,12 @@ bool load_obj_model(const char *filename, OBJModel *model) {
     model->vao = 0;
     model->vbo = 0;
 
-     printf("✅ Загружено из %s:\n", filename);
-    printf("   - Позиций: %d\n", data.position_count);
-    printf("   - Текстурных координат: %d\n", data.tex_coord_count);
-    printf("   - Вершин (после триангуляции): %d\n", model->vertex_count);
-    printf("   - Треугольников: %d\n", model->vertex_count / 3);
+     printf("загружено из %s:\n", filename);
+    printf("   - позиций: %d\n", data.position_count);
+    printf("   - текстурных координат: %d\n", data.tex_coord_count);
+    printf("   - вершин (после триангуляции): %d\n", model->vertex_count);
+    printf("   - треугольников: %d\n", model->vertex_count / 3);
 
-    // Освобождаем временные данные
     free(data.positions);
     free(data.tex_coords);
 

@@ -131,12 +131,22 @@ typedef struct {
 } OBJTexturedShader;
 
 typedef struct {
+    int id;
+    int vertex_position;
+    int vertex_tex;
+    int texture;
+    int view;
+    int proj;
+} OBJInstancedShader;
+
+typedef struct {
     FlatColorShader flat_color;
     UniformColorShader uniform_flat_color;
     GradientShader  gradient;
     TexturedShader textured;
     MixTexturedShader mix_textured;
     OBJTexturedShader obj_textured;
+    OBJInstancedShader obj_instanced;
 } Shaders;
 
 typedef struct {

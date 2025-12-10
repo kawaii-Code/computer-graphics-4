@@ -168,13 +168,11 @@ void camera_update(Camera *camera);
 // Вспомогательная функция для загрузки модели с проверкой нескольких путей
 bool load_obj_model_try_paths(const char **paths, int path_count, OBJModel *model, const char *model_name) {
     for (int i = 0; i < path_count; i++) {
-        printf("🔍 %s: попытка %d/%d: %s\n", model_name, i+1, path_count, paths[i]);
         if (load_obj_model(paths[i], model)) {
-            printf("✅ %s загружена: %d вершин\n", model_name, model->vertex_count);
             return true;
         }
     }
-    fprintf(stderr, "❌ Не удалось загрузить %s ни из одного пути!\n", model_name);
+    fprintf(stderr, "не удалось загрузить %s ни из одного пути!\n", model_name);
     return false;
 }
 
@@ -263,6 +261,15 @@ int main() {
         shaders->obj_textured.view = glGetUniformLocation(obj_textured, "view");
         shaders->obj_textured.proj = glGetUniformLocation(obj_textured, "proj");
         shaders->obj_textured.world = glGetUniformLocation(obj_textured, "world");
+
+        int obj_instanced = compile_shader("shaders/obj_instanced");
+
+        shaders->obj_instanced.id = obj_instanced;
+        shaders->obj_instanced.vertex_position = glGetAttribLocation(obj_instanced, "aPos");
+        shaders->obj_instanced.vertex_tex = glGetAttribLocation(obj_instanced, "aTexCoord");
+        shaders->obj_instanced.texture = glGetUniformLocation(obj_instanced, "ourTexture");
+        shaders->obj_instanced.view = glGetUniformLocation(obj_instanced, "view");
+        shaders->obj_instanced.proj = glGetUniformLocation(obj_instanced, "proj");
     }
 
     GLuint texture;
@@ -367,8 +374,6 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    printf("\n🌌 Загрузка моделей для солнечной системы...\n");
-
     OBJModel model_bomb, model_corona, model_sphinx, model_skull;
 
     const char *bomb_paths[] = {
@@ -407,10 +412,6 @@ int main() {
     }
     setup_obj_model_buffers(&model_skull);
 
-    printf("🎉 Все модели загружены успешно!\n\n");
-
-    printf("🎨 Загрузка текстур для моделей...\n");
-
     GLuint texture_corona = load_texture_from_file("models/Corona/BotellaText.jpg");
     if (texture_corona == 0) {
         texture_corona = load_texture_from_file("../models/Corona/BotellaText.jpg");
@@ -427,6 +428,37 @@ int main() {
     }
 
     GLuint texture_bomb = create_solid_color_texture(80, 80, 85);
+
+    // Создаем instance буферы для instancing
+    #define MAX_INSTANCES 64
+    GLuint instance_vbo_bomb, instance_vbo_skull;
+
+    glGenBuffers(1, &instance_vbo_bomb);
+    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_bomb);
+    glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * sizeof(Matrix4x4), NULL, GL_DYNAMIC_DRAW);
+
+    glBindVertexArray(model_bomb.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_bomb);
+    for (int i = 0; i < 4; i++) {
+        glEnableVertexAttribArray(2 + i);
+        glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(Matrix4x4), (void*)(sizeof(float) * 4 * i));
+        glVertexAttribDivisor(2 + i, 1);
+    }
+
+    glGenBuffers(1, &instance_vbo_skull);
+    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_skull);
+    glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * sizeof(Matrix4x4), NULL, GL_DYNAMIC_DRAW);
+
+    glBindVertexArray(model_skull.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_skull);
+    for (int i = 0; i < 4; i++) {
+        glEnableVertexAttribArray(2 + i);
+        glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(Matrix4x4), (void*)(sizeof(float) * 4 * i));
+        glVertexAttribDivisor(2 + i, 1);
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     int mode = MODE_GRADIENT;
     int figure = CUBE;
@@ -604,113 +636,6 @@ int main() {
                 }
 
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture_bomb);
-                glUniform1i(shaders->obj_textured.texture, 0);
-
-                {
-                    float orbit_radius = 4.0f;
-                    float orbit_speed = 1.5f;
-                    float angle = time * orbit_speed;
-
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world,
-                        mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 2.0f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_bomb.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
-                }
-
-                {
-                    float orbit_radius = 6.5f;
-                    float orbit_speed = 1.0f;
-                    float angle = time * orbit_speed + PI / 3.0f; // Смещение по орбите
-
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world,
-                        mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                    world = mat4_multiply(world, mat4_rotation_x(PI / 2.0f));
-                    world = mat4_multiply(world, mat4_rotation_z(time * 3.0f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.025f, 0.025f, 0.025f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_bomb.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
-                }
-
-                {
-                    float orbit_radius = 9.0f;
-                    float orbit_speed = 0.7f;
-                    float angle = time * orbit_speed + 2.0f * PI / 3.0f;
-
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world,
-                        mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 1.5f));
-                    world = mat4_multiply(world, mat4_rotation_x(time * 1.0f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.015f, 0.015f, 0.015f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_bomb.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
-                }
-
-                {
-                    float orbit_radius = 11.5f;
-                    float orbit_speed = 0.5f;
-                    float angle = time * orbit_speed + PI;
-
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world,
-                        mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 2.5f));
-                    world = mat4_multiply(world, mat4_rotation_z(time * 1.2f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_bomb.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
-                }
-
-                {
-                    float orbit_radius = 14.0f;
-                    float orbit_speed = 0.35f;
-                    float angle = time * orbit_speed + 4.0f * PI / 3.0f;
-
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world,
-                        mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                    world = mat4_multiply(world, mat4_rotation_y(PI / 2.0f));
-                    world = mat4_multiply(world, mat4_rotation_x(time * 4.0f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.022f, 0.022f, 0.022f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_bomb.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
-                }
-
-                {
-                    float orbit_radius = 8.0f;
-                    float orbit_speed = 0.9f;
-                    float angle = time * orbit_speed + 5.0f * PI / 3.0f;
-
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world,
-                        mat4_translation((Vector3){orbit_radius * cosf(angle),
-                                                   0.5f * sinf(time * 2.0f), // Движение вверх-вниз
-                                                   orbit_radius * sinf(angle)}));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 2.0f));
-                    world = mat4_multiply(world, mat4_rotation_x(time * 0.5f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_bomb.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_bomb.vertex_count);
-                }
-
-                glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture_sphinx);
                 glUniform1i(shaders->obj_textured.texture, 0);
 
@@ -719,73 +644,159 @@ int main() {
                     float orbit_speed = 0.8f;
                     float angle = time * orbit_speed;
 
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world,
+                    Matrix4x4 w = mat4_identity();
+                    w = mat4_multiply(w,
                         mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 1.8f));
-                    world = mat4_multiply(world, mat4_rotation_x(-PI / 2.0f)); // Поворачиваем, чтобы встал вертикально
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.002f, 0.002f, 0.002f})); // Масштаб для сфинкса (микроскопический!)
+                    w = mat4_multiply(w, mat4_rotation_y(time * 1.8f));
+                    w = mat4_multiply(w, mat4_rotation_x(-PI / 2.0f));
+                    w = mat4_multiply(w, mat4_scale((Vector3){0.002f, 0.002f, 0.002f}));
 
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
+                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, w.m);
                     glBindVertexArray(model_sphinx.vao);
                     glDrawArrays(GL_TRIANGLES, 0, model_sphinx.vertex_count);
                 }
 
+                glUseProgram(shaders->obj_instanced.id);
+                glUniformMatrix4fv(shaders->obj_instanced.view, 1, false, view.m);
+                glUniformMatrix4fv(shaders->obj_instanced.proj, 1, false, proj.m);
+
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, texture_bomb);
+                glUniform1i(shaders->obj_instanced.texture, 0);
+
+                {
+                    Matrix4x4 bomb_instances[6];
+                    int bomb_count = 0;
+
+                    {
+                        float orbit_radius = 4.0f;
+                        float orbit_speed = 1.5f;
+                        float angle = time * orbit_speed;
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
+                        w = mat4_multiply(w, mat4_rotation_y(time * 2.0f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
+                        bomb_instances[bomb_count++] = w;
+                    }
+
+                    {
+                        float orbit_radius = 6.5f;
+                        float orbit_speed = 1.0f;
+                        float angle = time * orbit_speed + PI / 3.0f;
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
+                        w = mat4_multiply(w, mat4_rotation_x(PI / 2.0f));
+                        w = mat4_multiply(w, mat4_rotation_z(time * 3.0f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.025f, 0.025f, 0.025f}));
+                        bomb_instances[bomb_count++] = w;
+                    }
+
+                    {
+                        float orbit_radius = 9.0f;
+                        float orbit_speed = 0.7f;
+                        float angle = time * orbit_speed + 2.0f * PI / 3.0f;
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
+                        w = mat4_multiply(w, mat4_rotation_y(time * 1.5f));
+                        w = mat4_multiply(w, mat4_rotation_x(time * 1.0f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.015f, 0.015f, 0.015f}));
+                        bomb_instances[bomb_count++] = w;
+                    }
+
+                    {
+                        float orbit_radius = 11.5f;
+                        float orbit_speed = 0.5f;
+                        float angle = time * orbit_speed + PI;
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
+                        w = mat4_multiply(w, mat4_rotation_y(time * 2.5f));
+                        w = mat4_multiply(w, mat4_rotation_z(time * 1.2f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
+                        bomb_instances[bomb_count++] = w;
+                    }
+
+                    {
+                        float orbit_radius = 14.0f;
+                        float orbit_speed = 0.35f;
+                        float angle = time * orbit_speed + 4.0f * PI / 3.0f;
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
+                        w = mat4_multiply(w, mat4_rotation_y(PI / 2.0f));
+                        w = mat4_multiply(w, mat4_rotation_x(time * 4.0f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.022f, 0.022f, 0.022f}));
+                        bomb_instances[bomb_count++] = w;
+                    }
+
+                    {
+                        float orbit_radius = 8.0f;
+                        float orbit_speed = 0.9f;
+                        float angle = time * orbit_speed + 5.0f * PI / 3.0f;
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0.5f * sinf(time * 2.0f), orbit_radius * sinf(angle)}));
+                        w = mat4_multiply(w, mat4_rotation_y(time * 2.0f));
+                        w = mat4_multiply(w, mat4_rotation_x(time * 0.5f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
+                        bomb_instances[bomb_count++] = w;
+                    }
+
+                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_bomb);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, bomb_count * sizeof(Matrix4x4), bomb_instances);
+                    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+                    glBindVertexArray(model_bomb.vao);
+                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_bomb.vertex_count, bomb_count);
+                }
+
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture_skull);
-                glUniform1i(shaders->obj_textured.texture, 0);
+                glUniform1i(shaders->obj_instanced.texture, 0);
 
                 {
-                    float orbit_radius = 5.5f;
-                    float orbit_speed = 1.3f;
-                    float angle = time * orbit_speed + PI / 4.0f;
+                    Matrix4x4 skull_instances[3];
+                    int skull_count = 0;
 
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world,
-                        mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 2.5f));
-                    world = mat4_multiply(world, mat4_rotation_z(time * 0.8f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.015f, 0.015f, 0.015f}));
+                    {
+                        float orbit_radius = 5.5f;
+                        float orbit_speed = 1.3f;
+                        float angle = time * orbit_speed + PI / 4.0f;
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
+                        w = mat4_multiply(w, mat4_rotation_y(time * 2.5f));
+                        w = mat4_multiply(w, mat4_rotation_z(time * 0.8f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.015f, 0.015f, 0.015f}));
+                        skull_instances[skull_count++] = w;
+                    }
 
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
+                    {
+                        float orbit_radius = 10.0f;
+                        float orbit_speed = 0.6f;
+                        float angle = time * orbit_speed + PI;
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
+                        w = mat4_multiply(w, mat4_rotation_y(-time * 1.5f));
+                        w = mat4_multiply(w, mat4_rotation_x(time * 0.3f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
+                        skull_instances[skull_count++] = w;
+                    }
+
+                    {
+                        float orbit_radius = 12.5f;
+                        float orbit_speed = 0.4f;
+                        float angle = time * orbit_speed + 3.0f * PI / 2.0f;
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0.3f * sinf(time * 1.5f), orbit_radius * sinf(angle)}));
+                        w = mat4_multiply(w, mat4_rotation_y(time * 1.0f));
+                        w = mat4_multiply(w, mat4_rotation_z(sinf(time * 0.5f) * 0.5f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
+                        skull_instances[skull_count++] = w;
+                    }
+
+                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_skull);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, skull_count * sizeof(Matrix4x4), skull_instances);
+                    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
                     glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
-                }
-
-                {
-                    float orbit_radius = 10.0f;
-                    float orbit_speed = 0.6f;
-                    float angle = time * orbit_speed + PI;
-
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world,
-                        mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                    world = mat4_multiply(world, mat4_rotation_y(-time * 1.5f));
-                    world = mat4_multiply(world, mat4_rotation_x(time * 0.3f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
-                }
-
-                {
-                    float orbit_radius = 12.5f;
-                    float orbit_speed = 0.4f;
-                    float angle = time * orbit_speed + 3.0f * PI / 2.0f;
-
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world,
-                        mat4_translation((Vector3){orbit_radius * cosf(angle),
-                                                   0.3f * sinf(time * 1.5f), // Покачивание
-                                                   orbit_radius * sinf(angle)}));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 1.0f));
-                    world = mat4_multiply(world, mat4_rotation_z(sinf(time * 0.5f) * 0.5f)); // Наклон
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
+                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_skull.vertex_count, skull_count);
                 }
 
                 glUseProgram(0);
@@ -799,111 +810,98 @@ int main() {
                 glDisable(GL_CULL_FACE);
                 glFrontFace(GL_CCW);
 
-                glUseProgram(shaders->obj_textured.id);
-                glUniformMatrix4fv(shaders->obj_textured.view, 1, false, view.m);
-                glUniformMatrix4fv(shaders->obj_textured.proj, 1, false, proj.m);
+                glUseProgram(shaders->obj_instanced.id);
+                glUniformMatrix4fv(shaders->obj_instanced.view, 1, false, view.m);
+                glUniformMatrix4fv(shaders->obj_instanced.proj, 1, false, proj.m);
 
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, texture_skull);
-                glUniform1i(shaders->obj_textured.texture, 0);
+                glUniform1i(shaders->obj_instanced.texture, 0);
 
                 {
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world, mat4_translation((Vector3){0.0f, 0.0f, 0.0f}));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 1.0f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.03f, 0.03f, 0.03f}));
+                    Matrix4x4 skull_instances[8];
+                    int skull_count = 0;
 
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
+                    {
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){0.0f, 0.0f, 0.0f}));
+                        w = mat4_multiply(w, mat4_rotation_y(time * 1.0f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.03f, 0.03f, 0.03f}));
+                        skull_instances[skull_count++] = w;
+                    }
+
+                    {
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){-3.0f, 0.0f, 0.0f}));
+                        w = mat4_multiply(w, mat4_rotation_y(time * 2.5f));
+                        w = mat4_multiply(w, mat4_rotation_x(time * 1.0f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
+                        skull_instances[skull_count++] = w;
+                    }
+
+                    {
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){3.0f, 0.0f, 0.0f}));
+                        w = mat4_multiply(w, mat4_rotation_y(-time * 0.5f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.04f, 0.04f, 0.04f}));
+                        skull_instances[skull_count++] = w;
+                    }
+
+                    {
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){0.0f, 3.0f, 0.0f}));
+                        w = mat4_multiply(w, mat4_rotation_x(PI));
+                        w = mat4_multiply(w, mat4_rotation_y(time * 1.5f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.025f, 0.025f, 0.025f}));
+                        skull_instances[skull_count++] = w;
+                    }
+
+                    {
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){0.0f, -2.5f, 0.0f}));
+                        w = mat4_multiply(w, mat4_rotation_z(PI));
+                        w = mat4_multiply(w, mat4_rotation_y(-time * 2.0f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.022f, 0.022f, 0.022f}));
+                        skull_instances[skull_count++] = w;
+                    }
+
+                    {
+                        float bob = sinf(time * 2.0f) * 0.5f;
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){-2.0f, bob, 2.0f}));
+                        w = mat4_multiply(w, mat4_rotation_y(time * 1.8f));
+                        w = mat4_multiply(w, mat4_rotation_z(sinf(time) * 0.3f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
+                        skull_instances[skull_count++] = w;
+                    }
+
+                    {
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){2.0f, 1.0f, 2.0f}));
+                        w = mat4_multiply(w, mat4_rotation_x(PI / 4.0f));
+                        w = mat4_multiply(w, mat4_rotation_y(-time * 1.2f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.028f, 0.028f, 0.028f}));
+                        skull_instances[skull_count++] = w;
+                    }
+
+                    {
+                        float radius = 2.5f;
+                        float angle = time * 0.8f;
+                        float x = radius * cosf(angle);
+                        float z = -radius * sinf(angle);
+                        Matrix4x4 w = mat4_identity();
+                        w = mat4_multiply(w, mat4_translation((Vector3){x, 0.5f, z}));
+                        w = mat4_multiply(w, mat4_rotation_y(angle + PI / 2.0f));
+                        w = mat4_multiply(w, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
+                        skull_instances[skull_count++] = w;
+                    }
+
+                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_skull);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, skull_count * sizeof(Matrix4x4), skull_instances);
+                    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
                     glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
-                }
-
-                {
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world, mat4_translation((Vector3){-3.0f, 0.0f, 0.0f}));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 2.5f));
-                    world = mat4_multiply(world, mat4_rotation_x(time * 1.0f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
-                }
-
-                {
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world, mat4_translation((Vector3){3.0f, 0.0f, 0.0f}));
-                    world = mat4_multiply(world, mat4_rotation_y(-time * 0.5f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.04f, 0.04f, 0.04f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
-                }
-
-                {
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world, mat4_translation((Vector3){0.0f, 3.0f, 0.0f}));
-                    world = mat4_multiply(world, mat4_rotation_x(PI));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 1.5f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.025f, 0.025f, 0.025f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
-                }
-
-                {
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world, mat4_translation((Vector3){0.0f, -2.5f, 0.0f}));
-                    world = mat4_multiply(world, mat4_rotation_z(PI));
-                    world = mat4_multiply(world, mat4_rotation_y(-time * 2.0f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.022f, 0.022f, 0.022f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
-                }
-
-                {
-                    float bob = sinf(time * 2.0f) * 0.5f;
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world, mat4_translation((Vector3){-2.0f, bob, 2.0f}));
-                    world = mat4_multiply(world, mat4_rotation_y(time * 1.8f));
-                    world = mat4_multiply(world, mat4_rotation_z(sinf(time) * 0.3f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
-                }
-
-                {
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world, mat4_translation((Vector3){2.0f, 1.0f, 2.0f}));
-                    world = mat4_multiply(world, mat4_rotation_x(PI / 4.0f));
-                    world = mat4_multiply(world, mat4_rotation_y(-time * 1.2f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.028f, 0.028f, 0.028f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
-                }
-
-                {
-                    float radius = 2.5f;
-                    float angle = time * 0.8f;
-                    float x = radius * cosf(angle);
-                    float z = -radius * sinf(angle);
-
-                    Matrix4x4 world = mat4_identity();
-                    world = mat4_multiply(world, mat4_translation((Vector3){x, 0.5f, z}));
-                    world = mat4_multiply(world, mat4_rotation_y(angle + PI / 2.0f));
-                    world = mat4_multiply(world, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, world.m);
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_skull.vertex_count);
+                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_skull.vertex_count, skull_count);
                 }
 
                 glUseProgram(0);
@@ -952,22 +950,22 @@ int main() {
 
     // Впервые в жизни я уберу за собой!
 
-    printf("\n🧹 Освобождение ресурсов...\n");
     free_obj_model(&model_bomb);
     free_obj_model(&model_corona);
     free_obj_model(&model_sphinx);
     free_obj_model(&model_skull);
-    printf("✅ Модели освобождены\n");
 
     glDeleteTextures(1, &texture_corona);
     glDeleteTextures(1, &texture_sphinx);
     glDeleteTextures(1, &texture_skull);
     glDeleteTextures(1, &texture_bomb);
-    printf("✅ Текстуры освобождены\n");
 
     glDeleteProgram(shaders->gradient.id);
     glDeleteProgram(shaders->uniform_flat_color.id);
     glDeleteProgram(shaders->flat_color.id);
+    glDeleteProgram(shaders->obj_instanced.id);
+    glDeleteBuffers(1, &instance_vbo_bomb);
+    glDeleteBuffers(1, &instance_vbo_skull);
     glDeleteBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);
     glDeleteVertexArrays(VAOS_COUNT, vaos);
 
@@ -1034,8 +1032,6 @@ GLuint create_solid_color_texture(unsigned char r, unsigned char g, unsigned cha
     unsigned char pixel[3] = {r, g, b};
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel);
 
-    printf("✅ Создана однотонная текстура: RGB(%d, %d, %d)\n", r, g, b);
-
     return texture;
 }
 
@@ -1060,7 +1056,7 @@ GLuint load_texture_from_file(const char *path) {
         glGenerateMipmap(GL_TEXTURE_2D);
 
     } else {
-        fprintf(stderr, "❌ Не удалось загрузить текстуру: %s\n", path);
+        fprintf(stderr, "[ERROR] Не удалось загрузить текстуру: %s\n", path);
         fprintf(stderr, "   Причина: %s\n", stbi_failure_reason());
     }
 
