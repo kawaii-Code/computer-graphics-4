@@ -17,6 +17,7 @@ enum {
     MODE_MIX_TEXTURED,
     MODE_SOLAR_SYSTEM,
     MODE_MULTIPLE_MODELS,
+    MODE_LIT_SCENE,
 };
 
 enum {
@@ -139,6 +140,53 @@ typedef struct {
     int proj;
 } OBJInstancedShader;
 
+// Шейдер для отображения источников света
+typedef struct {
+    int id;
+    int vertex_position;
+    int world;
+    int view;
+    int proj;
+    int lightColor;
+} LightSourceShader;
+
+// Шейдер для освещённых объектов (поддерживает instancing)
+typedef struct {
+    int id;
+    int view;
+    int proj;
+    int viewPos;
+    int texture;
+    int ambientColor;
+
+    // Point Light
+    int pointLightEnabled;
+    int pointLightPos;
+    int pointLightColor;
+    int pointLightIntensity;
+    int pointLightConstant;
+    int pointLightLinear;
+    int pointLightQuadratic;
+
+    // Directional Light
+    int dirLightEnabled;
+    int dirLightDirection;
+    int dirLightColor;
+    int dirLightIntensity;
+
+    // Spot Light
+    int spotLightEnabled;
+    int spotLightPos;
+    int spotLightDirection;
+    int spotLightColor;
+    int spotLightIntensity;
+    int spotLightCutOff;
+    int spotLightOuterCutOff;
+    int spotLightConstant;
+    int spotLightLinear;
+    int spotLightQuadratic;
+} LitInstancedShader;
+
 typedef struct {
     FlatColorShader flat_color;
     UniformColorShader uniform_flat_color;
@@ -147,6 +195,8 @@ typedef struct {
     MixTexturedShader mix_textured;
     OBJTexturedShader obj_textured;
     OBJInstancedShader obj_instanced;
+    LightSourceShader light_source;
+    LitInstancedShader lit_instanced;
 } Shaders;
 
 typedef struct {

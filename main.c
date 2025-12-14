@@ -270,6 +270,43 @@ int main() {
         shaders->obj_instanced.texture = glGetUniformLocation(obj_instanced, "ourTexture");
         shaders->obj_instanced.view = glGetUniformLocation(obj_instanced, "view");
         shaders->obj_instanced.proj = glGetUniformLocation(obj_instanced, "proj");
+
+        // Instanced шейдер с освещением (используется для всех объектов)
+        int lit_instanced = compile_shader("shaders/lit_instanced");
+
+        shaders->lit_instanced.id = lit_instanced;
+        shaders->lit_instanced.view = glGetUniformLocation(lit_instanced, "view");
+        shaders->lit_instanced.proj = glGetUniformLocation(lit_instanced, "proj");
+        shaders->lit_instanced.viewPos = glGetUniformLocation(lit_instanced, "viewPos");
+        shaders->lit_instanced.texture = glGetUniformLocation(lit_instanced, "ourTexture");
+        shaders->lit_instanced.ambientColor = glGetUniformLocation(lit_instanced, "ambientColor");
+
+        // Point Light
+        shaders->lit_instanced.pointLightEnabled = glGetUniformLocation(lit_instanced, "pointLightEnabled");
+        shaders->lit_instanced.pointLightPos = glGetUniformLocation(lit_instanced, "pointLightPos");
+        shaders->lit_instanced.pointLightColor = glGetUniformLocation(lit_instanced, "pointLightColor");
+        shaders->lit_instanced.pointLightIntensity = glGetUniformLocation(lit_instanced, "pointLightIntensity");
+        shaders->lit_instanced.pointLightConstant = glGetUniformLocation(lit_instanced, "pointLightConstant");
+        shaders->lit_instanced.pointLightLinear = glGetUniformLocation(lit_instanced, "pointLightLinear");
+        shaders->lit_instanced.pointLightQuadratic = glGetUniformLocation(lit_instanced, "pointLightQuadratic");
+
+        // Directional Light
+        shaders->lit_instanced.dirLightEnabled = glGetUniformLocation(lit_instanced, "dirLightEnabled");
+        shaders->lit_instanced.dirLightDirection = glGetUniformLocation(lit_instanced, "dirLightDirection");
+        shaders->lit_instanced.dirLightColor = glGetUniformLocation(lit_instanced, "dirLightColor");
+        shaders->lit_instanced.dirLightIntensity = glGetUniformLocation(lit_instanced, "dirLightIntensity");
+
+        // Spot Light
+        shaders->lit_instanced.spotLightEnabled = glGetUniformLocation(lit_instanced, "spotLightEnabled");
+        shaders->lit_instanced.spotLightPos = glGetUniformLocation(lit_instanced, "spotLightPos");
+        shaders->lit_instanced.spotLightDirection = glGetUniformLocation(lit_instanced, "spotLightDirection");
+        shaders->lit_instanced.spotLightColor = glGetUniformLocation(lit_instanced, "spotLightColor");
+        shaders->lit_instanced.spotLightIntensity = glGetUniformLocation(lit_instanced, "spotLightIntensity");
+        shaders->lit_instanced.spotLightCutOff = glGetUniformLocation(lit_instanced, "spotLightCutOff");
+        shaders->lit_instanced.spotLightOuterCutOff = glGetUniformLocation(lit_instanced, "spotLightOuterCutOff");
+        shaders->lit_instanced.spotLightConstant = glGetUniformLocation(lit_instanced, "spotLightConstant");
+        shaders->lit_instanced.spotLightLinear = glGetUniformLocation(lit_instanced, "spotLightLinear");
+        shaders->lit_instanced.spotLightQuadratic = glGetUniformLocation(lit_instanced, "spotLightQuadratic");
     }
 
     GLuint texture;
@@ -429,32 +466,24 @@ int main() {
 
     GLuint texture_bomb = create_solid_color_texture(80, 80, 85);
 
-    // Создаем instance буферы для instancing
+    // Создаем instance буфер для instancing (общий для всех моделей)
     #define MAX_INSTANCES 64
-    GLuint instance_vbo_bomb, instance_vbo_skull;
+    GLuint instance_vbo;
 
-    glGenBuffers(1, &instance_vbo_bomb);
-    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_bomb);
+    glGenBuffers(1, &instance_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
     glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * sizeof(Matrix4x4), NULL, GL_DYNAMIC_DRAW);
 
-    glBindVertexArray(model_bomb.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_bomb);
-    for (int i = 0; i < 4; i++) {
-        glEnableVertexAttribArray(2 + i);
-        glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(Matrix4x4), (void*)(sizeof(float) * 4 * i));
-        glVertexAttribDivisor(2 + i, 1);
-    }
-
-    glGenBuffers(1, &instance_vbo_skull);
-    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_skull);
-    glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * sizeof(Matrix4x4), NULL, GL_DYNAMIC_DRAW);
-
-    glBindVertexArray(model_skull.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_skull);
-    for (int i = 0; i < 4; i++) {
-        glEnableVertexAttribArray(2 + i);
-        glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(Matrix4x4), (void*)(sizeof(float) * 4 * i));
-        glVertexAttribDivisor(2 + i, 1);
+    // Настраиваем instance атрибуты для каждой модели
+    OBJModel* models_to_setup[] = {&model_bomb, &model_skull, &model_corona, &model_sphinx};
+    for (int m = 0; m < 4; m++) {
+        glBindVertexArray(models_to_setup[m]->vao);
+        glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+        for (int i = 0; i < 4; i++) {
+            glEnableVertexAttribArray(3 + i);
+            glVertexAttribPointer(3 + i, 4, GL_FLOAT, GL_FALSE, sizeof(Matrix4x4), (void*)(sizeof(float) * 4 * i));
+            glVertexAttribDivisor(3 + i, 1);
+        }
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -475,6 +504,7 @@ int main() {
         if (program->keys[GLFW_KEY_3].pressed_this_frame) mode = MODE_MIX_TEXTURED;
         if (program->keys[GLFW_KEY_4].pressed_this_frame) mode = MODE_SOLAR_SYSTEM;
         if (program->keys[GLFW_KEY_5].pressed_this_frame) mode = MODE_MULTIPLE_MODELS;
+        if (program->keys[GLFW_KEY_6].pressed_this_frame) mode = MODE_LIT_SCENE;
 
         if (program->keys[GLFW_KEY_Z].pressed_this_frame) figure = TETRAHEDRON;
         if (program->keys[GLFW_KEY_X].pressed_this_frame) figure = CUBE;
@@ -739,7 +769,7 @@ int main() {
                         bomb_instances[bomb_count++] = w;
                     }
 
-                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_bomb);
+                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
                     glBufferSubData(GL_ARRAY_BUFFER, 0, bomb_count * sizeof(Matrix4x4), bomb_instances);
                     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -791,7 +821,7 @@ int main() {
                         skull_instances[skull_count++] = w;
                     }
 
-                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_skull);
+                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
                     glBufferSubData(GL_ARRAY_BUFFER, 0, skull_count * sizeof(Matrix4x4), skull_instances);
                     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -896,12 +926,159 @@ int main() {
                         skull_instances[skull_count++] = w;
                     }
 
-                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo_skull);
+                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
                     glBufferSubData(GL_ARRAY_BUFFER, 0, skull_count * sizeof(Matrix4x4), skull_instances);
                     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
                     glBindVertexArray(model_skull.vao);
                     glDrawArraysInstanced(GL_TRIANGLES, 0, model_skull.vertex_count, skull_count);
+                }
+
+                glUseProgram(0);
+                glBindVertexArray(0);
+            } break;
+
+            case MODE_LIT_SCENE: {
+                glDisable(GL_BLEND);
+                glEnable(GL_DEPTH_TEST);
+                glDepthFunc(GL_LESS);
+                glDisable(GL_CULL_FACE);
+                glFrontFace(GL_CCW);
+
+                // Позиции источников света (статичные)
+                Vector3 pointLightPosition = {4.0f, 3.0f, 4.0f};
+                Vector3 spotLightPosition = {0.0f, 5.0f, -3.0f};
+                Vector3 spotLightDir = {0.0f, -1.0f, 0.3f};
+                Vector3 dirLightVisualPos = {-2.0f, 8.0f, -3.0f};
+
+                // Используем один шейдер для всех объектов с освещением
+                glUseProgram(shaders->lit_instanced.id);
+                glUniformMatrix4fv(shaders->lit_instanced.view, 1, false, view.m);
+                glUniformMatrix4fv(shaders->lit_instanced.proj, 1, false, proj.m);
+                glUniform3f(shaders->lit_instanced.viewPos, camera.position.x, camera.position.y, camera.position.z);
+
+                // Ambient освещение
+                glUniform3f(shaders->lit_instanced.ambientColor, 0.15f, 0.15f, 0.18f);
+
+                // Точечный источник света (лампочка)
+                glUniform1i(shaders->lit_instanced.pointLightEnabled, 1);
+                glUniform3f(shaders->lit_instanced.pointLightPos, pointLightPosition.x, pointLightPosition.y, pointLightPosition.z);
+                glUniform3f(shaders->lit_instanced.pointLightColor, 0.0f, 0.0f, 1.0f);
+                glUniform1f(shaders->lit_instanced.pointLightIntensity, 1.0f);
+                glUniform1f(shaders->lit_instanced.pointLightConstant, 1.0f);
+                glUniform1f(shaders->lit_instanced.pointLightLinear, 0.09f);
+                glUniform1f(shaders->lit_instanced.pointLightQuadratic, 0.032f);
+
+                // Направленный источник света (солнце/луна)
+                glUniform1i(shaders->lit_instanced.dirLightEnabled, 1);
+                glUniform3f(shaders->lit_instanced.dirLightDirection, -0.2f, -1.0f, -0.3f);
+                glUniform3f(shaders->lit_instanced.dirLightColor, 1.0f, 0.4f, 0.6f);
+                glUniform1f(shaders->lit_instanced.dirLightIntensity, 0.7f);
+
+                // Прожекторный источник света
+                glUniform1i(shaders->lit_instanced.spotLightEnabled, 1);
+                glUniform3f(shaders->lit_instanced.spotLightPos, spotLightPosition.x, spotLightPosition.y, spotLightPosition.z);
+                glUniform3f(shaders->lit_instanced.spotLightDirection, spotLightDir.x + 0.05f, spotLightDir.y + 0.9f, spotLightDir.z);
+                glUniform3f(shaders->lit_instanced.spotLightColor, 0.0f, 1.0f, 0.0f);
+                glUniform1f(shaders->lit_instanced.spotLightIntensity, 3.0f);
+                glUniform1f(shaders->lit_instanced.spotLightCutOff, cosf(1.0f * DEG2RAD));
+                glUniform1f(shaders->lit_instanced.spotLightOuterCutOff, cosf(4.0f * DEG2RAD));
+                glUniform1f(shaders->lit_instanced.spotLightConstant, 1.0f);
+                glUniform1f(shaders->lit_instanced.spotLightLinear, 0.09f);
+                glUniform1f(shaders->lit_instanced.spotLightQuadratic, 0.032f);
+
+                // Объект 1: Корона (центр сцены) - через instancing с count=1
+                {
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, texture_corona);
+                    glUniform1i(shaders->lit_instanced.texture, 0);
+
+                    Matrix4x4 instance[1];
+                    instance[0] = mat4_identity();
+                    instance[0] = mat4_multiply(instance[0], mat4_translation((Vector3){0.0f, 0.0f, 0.0f}));
+                    instance[0] = mat4_multiply(instance[0], mat4_rotation_x(DEG2RAD * -90.0f));
+                    instance[0] = mat4_multiply(instance[0], mat4_scale((Vector3){0.08f, 0.08f, 0.08f}));
+
+                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Matrix4x4), instance);
+                    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+                    glBindVertexArray(model_corona.vao);
+                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_corona.vertex_count, 1);
+                }
+
+                // Объект 2: Сфинкс
+                {
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, texture_sphinx);
+                    glUniform1i(shaders->lit_instanced.texture, 0);
+
+                    Matrix4x4 instance[1];
+                    instance[0] = mat4_identity();
+                    instance[0] = mat4_multiply(instance[0], mat4_translation((Vector3){1.35f, 0.0f, 7.6f}));
+                    instance[0] = mat4_multiply(instance[0], mat4_rotation_x(-PI / 2.0f));
+                    instance[0] = mat4_multiply(instance[0], mat4_rotation_z(DEG2RAD * 180.0f));
+                    instance[0] = mat4_multiply(instance[0], mat4_scale((Vector3){0.003f, 0.003f, 0.003f}));
+
+                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Matrix4x4), instance);
+                    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+                    glBindVertexArray(model_sphinx.vao);
+                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_sphinx.vertex_count, 1);
+                }
+
+                // Объект 3: Череп
+                {
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, texture_skull);
+                    glUniform1i(shaders->lit_instanced.texture, 0);
+
+                    Matrix4x4 instance[1];
+                    instance[0] = mat4_identity();
+                    instance[0] = mat4_multiply(instance[0], mat4_translation((Vector3){1.27f, 3.7f, 5.0f}));
+                    instance[0] = mat4_multiply(instance[0], mat4_rotation_x(-PI / 2.0f));
+                    instance[0] = mat4_multiply(instance[0], mat4_rotation_z(DEG2RAD * 180.0f));
+                    instance[0] = mat4_multiply(instance[0], mat4_scale((Vector3){0.1f, 0.1f, 0.1f}));
+
+                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Matrix4x4), instance);
+                    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+                    glBindVertexArray(model_skull.vao);
+                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_skull.vertex_count, 1);
+                }
+
+                // Бомбы - несколько инстансов
+                {
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, texture_bomb);
+                    glUniform1i(shaders->lit_instanced.texture, 0);
+
+                    Matrix4x4 instances[5];
+                    int count = 0;
+
+                    Matrix4x4 w = mat4_identity();
+                    w = mat4_multiply(w, mat4_translation((Vector3){1.27f, 8.0f, 5.0f}));
+                    w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
+                    instances[count++] = w;
+
+                    w = mat4_identity();
+                    w = mat4_multiply(w, mat4_translation((Vector3){-1.73f, 8.0f, 5.0f}));
+                    w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
+                    instances[count++] = w;
+
+                    w = mat4_identity();
+                    w = mat4_multiply(w, mat4_translation((Vector3){4.27f, 8.0f, 5.0f}));
+                    w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
+                    instances[count++] = w;
+
+                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, count * sizeof(Matrix4x4), instances);
+                    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+                    glBindVertexArray(model_bomb.vao);
+                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_bomb.vertex_count, count);
                 }
 
                 glUseProgram(0);
@@ -964,8 +1141,9 @@ int main() {
     glDeleteProgram(shaders->uniform_flat_color.id);
     glDeleteProgram(shaders->flat_color.id);
     glDeleteProgram(shaders->obj_instanced.id);
-    glDeleteBuffers(1, &instance_vbo_bomb);
-    glDeleteBuffers(1, &instance_vbo_skull);
+    glDeleteProgram(shaders->light_source.id);
+    glDeleteProgram(shaders->lit_instanced.id);
+    glDeleteBuffers(1, &instance_vbo);
     glDeleteBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);
     glDeleteVertexArrays(VAOS_COUNT, vaos);
 

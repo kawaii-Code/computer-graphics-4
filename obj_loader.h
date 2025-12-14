@@ -6,6 +6,7 @@
 
 typedef struct {
     Vector3 position;
+    Vector3 normal;
     Vector2 tex_coord;
 } OBJVertex;
 

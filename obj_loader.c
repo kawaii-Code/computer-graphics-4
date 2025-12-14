@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <unistd.h>
 #include <glad/glad.h>
 
@@ -9,6 +10,10 @@ typedef struct {
     Vector3 *positions;
     int position_count;
     int position_capacity;
+
+    Vector3 *normals;
+    int normal_count;
+    int normal_capacity;
 
     Vector2 *tex_coords;
     int tex_coord_count;
@@ -24,6 +29,10 @@ static void init_obj_data(OBJData *data) {
     data->positions = malloc(sizeof(Vector3) * data->position_capacity);
     data->position_count = 0;
 
+    data->normal_capacity = 1024;
+    data->normals = malloc(sizeof(Vector3) * data->normal_capacity);
+    data->normal_count = 0;
+
     data->tex_coord_capacity = 1024;
     data->tex_coords = malloc(sizeof(Vector2) * data->tex_coord_capacity);
     data->tex_coord_count = 0;
@@ -35,6 +44,7 @@ static void init_obj_data(OBJData *data) {
 
 static void free_obj_data(OBJData *data) {
     free(data->positions);
+    free(data->normals);
     free(data->tex_coords);
     free(data->vertices);
 }
@@ -45,6 +55,14 @@ static void add_position(OBJData *data, Vector3 pos) {
         data->positions = realloc(data->positions, sizeof(Vector3) * data->position_capacity);
     }
     data->positions[data->position_count++] = pos;
+}
+
+static void add_normal(OBJData *data, Vector3 normal) {
+    if (data->normal_count >= data->normal_capacity) {
+        data->normal_capacity *= 2;
+        data->normals = realloc(data->normals, sizeof(Vector3) * data->normal_capacity);
+    }
+    data->normals[data->normal_count++] = normal;
 }
 
 static void add_tex_coord(OBJData *data, Vector2 tc) {
@@ -79,6 +97,11 @@ bool load_obj_model(const char *filename, OBJModel *model) {
             Vector3 pos;
             sscanf(line, "v %f %f %f", &pos.x, &pos.y, &pos.z);
             add_position(&data, pos);
+        }
+        else if (line[0] == 'v' && line[1] == 'n') {
+            Vector3 normal;
+            sscanf(line, "vn %f %f %f", &normal.x, &normal.y, &normal.z);
+            add_normal(&data, normal);
         }
         else if (line[0] == 'v' && line[1] == 't') {
             Vector2 tc;
@@ -137,9 +160,32 @@ bool load_obj_model(const char *filename, OBJModel *model) {
             if (vertex_count_in_face >= 3) {
                 for (int i = 1; i < vertex_count_in_face - 1; i++) {
                     OBJVertex verts[3];
+                    int tri_indices[3] = { 0, i, i + 1 };
+
+                    // Вычисляем нормаль грани для случая, если нормали не заданы
+                    Vector3 p0 = data.positions[indices_v[tri_indices[0]] - 1];
+                    Vector3 p1 = data.positions[indices_v[tri_indices[1]] - 1];
+                    Vector3 p2 = data.positions[indices_v[tri_indices[2]] - 1];
+
+                    Vector3 edge1 = { p1.x - p0.x, p1.y - p0.y, p1.z - p0.z };
+                    Vector3 edge2 = { p2.x - p0.x, p2.y - p0.y, p2.z - p0.z };
+                    Vector3 face_normal = {
+                        edge1.y * edge2.z - edge1.z * edge2.y,
+                        edge1.z * edge2.x - edge1.x * edge2.z,
+                        edge1.x * edge2.y - edge1.y * edge2.x
+                    };
+                    // Нормализуем
+                    float len = sqrtf(face_normal.x * face_normal.x +
+                                     face_normal.y * face_normal.y +
+                                     face_normal.z * face_normal.z);
+                    if (len > 0.0001f) {
+                        face_normal.x /= len;
+                        face_normal.y /= len;
+                        face_normal.z /= len;
+                    }
 
                     for (int j = 0; j < 3; j++) {
-                        int idx = (j == 0) ? 0 : (j == 1) ? i : i + 1;
+                        int idx = tri_indices[j];
 
                         verts[j].position = data.positions[indices_v[idx] - 1];
 
@@ -147,6 +193,13 @@ bool load_obj_model(const char *filename, OBJModel *model) {
                             verts[j].tex_coord = data.tex_coords[indices_vt[idx] - 1];
                         } else {
                             verts[j].tex_coord = (Vector2){0.0f, 0.0f};
+                        }
+
+                        // Используем нормаль из файла или вычисленную нормаль грани
+                        if (indices_vn[idx] > 0 && indices_vn[idx] <= data.normal_count) {
+                            verts[j].normal = data.normals[indices_vn[idx] - 1];
+                        } else {
+                            verts[j].normal = face_normal;
                         }
                     }
 
@@ -167,11 +220,13 @@ bool load_obj_model(const char *filename, OBJModel *model) {
 
      printf("загружено из %s:\n", filename);
     printf("   - позиций: %d\n", data.position_count);
+    printf("   - нормалей: %d\n", data.normal_count);
     printf("   - текстурных координат: %d\n", data.tex_coord_count);
     printf("   - вершин (после триангуляции): %d\n", model->vertex_count);
     printf("   - треугольников: %d\n", model->vertex_count / 3);
 
     free(data.positions);
+    free(data.normals);
     free(data.tex_coords);
 
     return true;
@@ -208,15 +263,23 @@ void setup_obj_model_buffers(OBJModel *model) {
                  model->vertices,
                  GL_STATIC_DRAW);
 
+    // Position (location = 0)
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
                          sizeof(OBJVertex),
                          (void*)0);
 
+    // Normal (location = 1)
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
                          sizeof(OBJVertex),
                          (void*)(sizeof(Vector3)));
+
+    // TexCoord (location = 2)
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE,
+                         sizeof(OBJVertex),
+                         (void*)(sizeof(Vector3) + sizeof(Vector3)));
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
