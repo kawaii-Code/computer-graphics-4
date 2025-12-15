@@ -15,6 +15,8 @@
 
 #define CIRCLE_SEGMENTS 64
 
+int lighting_model = 0;
+
 const float camera_move_speed = 10.0f;
 const float sensitivity = 0.3f;
 
@@ -280,6 +282,7 @@ int main() {
         shaders->lit_instanced.viewPos = glGetUniformLocation(lit_instanced, "viewPos");
         shaders->lit_instanced.texture = glGetUniformLocation(lit_instanced, "ourTexture");
         shaders->lit_instanced.ambientColor = glGetUniformLocation(lit_instanced, "ambientColor");
+        shaders->lit_instanced.lightingModel = glGetUniformLocation(lit_instanced, "lightingModel");
 
         // Point Light
         shaders->lit_instanced.pointLightEnabled = glGetUniformLocation(lit_instanced, "pointLightEnabled");
@@ -506,10 +509,10 @@ int main() {
         if (program->keys[GLFW_KEY_5].pressed_this_frame) mode = MODE_MULTIPLE_MODELS;
         if (program->keys[GLFW_KEY_6].pressed_this_frame) mode = MODE_LIT_SCENE;
 
-        if (program->keys[GLFW_KEY_Z].pressed_this_frame) figure = TETRAHEDRON;
-        if (program->keys[GLFW_KEY_X].pressed_this_frame) figure = CUBE;
-        if (program->keys[GLFW_KEY_C].pressed_this_frame) figure = CIRCLE;
-        if (program->keys[GLFW_KEY_V].pressed_this_frame) figure = TEXTURED_CUBE;
+        //if (program->keys[GLFW_KEY_Z].pressed_this_frame) figure = TETRAHEDRON;
+        //if (program->keys[GLFW_KEY_X].pressed_this_frame) figure = CUBE;
+        //if (program->keys[GLFW_KEY_C].pressed_this_frame) figure = CIRCLE;
+        //if (program->keys[GLFW_KEY_V].pressed_this_frame) figure = TEXTURED_CUBE;
 
         if (program->keys[GLFW_KEY_B].pressed) global_rotation_x += rotation_speed;
         if (program->keys[GLFW_KEY_N].pressed) global_rotation_y += rotation_speed;
@@ -586,6 +589,10 @@ int main() {
             scale_x = scale_y = scale_z = 1.0f;
             color_boost.r = color_boost.g = color_boost.b = 0.0f;
         }
+
+        if (program->keys[GLFW_KEY_Z].pressed_this_frame) lighting_model = 0;
+        if (program->keys[GLFW_KEY_X].pressed_this_frame) lighting_model = 1;
+        if (program->keys[GLFW_KEY_C].pressed_this_frame) lighting_model = 2;
 
         Vector3 target = camera.position;
         target.x += camera.forward.x;
@@ -960,6 +967,9 @@ int main() {
                 // Ambient освещение
                 glUniform3f(shaders->lit_instanced.ambientColor, 0.15f, 0.15f, 0.18f);
 
+                // Выбор модели освещения
+                glUniform1i(shaders->lit_instanced.lightingModel, lighting_model);
+
                 // Точечный источник света (лампочка)
                 glUniform1i(shaders->lit_instanced.pointLightEnabled, 1);
                 glUniform3f(shaders->lit_instanced.pointLightPos, pointLightPosition.x, pointLightPosition.y, pointLightPosition.z);
@@ -1086,7 +1096,7 @@ int main() {
             } break;
         }
 
-        switch (figure) {
+        /*switch (figure) {
             case CUBE: {
                 glBindVertexArray(vaos[CUBE_VAO]);
                 glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(cube_vertices));
@@ -1106,7 +1116,7 @@ int main() {
                 glBindVertexArray(vaos[TEXTURED_CUBE_VAO]);
                 glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(textured_cube_vertices));
             } break;
-        }
+        }*/
 
         glUseProgram(0);
         glBindVertexArray(0);
@@ -1141,7 +1151,6 @@ int main() {
     glDeleteProgram(shaders->uniform_flat_color.id);
     glDeleteProgram(shaders->flat_color.id);
     glDeleteProgram(shaders->obj_instanced.id);
-    glDeleteProgram(shaders->light_source.id);
     glDeleteProgram(shaders->lit_instanced.id);
     glDeleteBuffers(1, &instance_vbo);
     glDeleteBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);

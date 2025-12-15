@@ -5,21 +5,36 @@ set(CMAKE_C_STANDARD 17)
 
 file(GLOB glad_files third_party/glad/*.c)
 
-# Основной проект (main.c)
-add_executable(${PROJECT_NAME} main.c linalg.c glfw_boilerplate.c obj_loader.c ${glad_files})
+add_executable(${PROJECT_NAME}
+    main.c
+    linalg.c
+    glfw_boilerplate.c
+    obj_loader.c
+    ${glad_files}
+)
 
+# Общие инклуды (glad, stb)
 target_include_directories(${PROJECT_NAME} PUBLIC third_party)
 
-target_link_directories(${PROJECT_NAME} PUBLIC third_party)
-find_package(glfw3 REQUIRED)
-target_link_libraries(${PROJECT_NAME} glfw)
+if (WIN32)
+    # Заголовки GLFW лежат в third_party/GLFW
+    target_include_directories(${PROJECT_NAME} PUBLIC
+        ${CMAKE_SOURCE_DIR}/third_party
+    )
 
-if (APPLE)
-    target_link_libraries(${PROJECT_NAME} "-framework IOKit")
-    target_link_libraries(${PROJECT_NAME} "-framework Cocoa")
-    target_link_libraries(${PROJECT_NAME} "-framework OpenGL")
-elseif(WIN32)
-    target_link_libraries(${PROJECT_NAME} winmm)
+    # Линкуем glfw.lib, который лежит прямо в third_party
+    target_link_libraries(${PROJECT_NAME}
+        ${CMAKE_SOURCE_DIR}/third_party/glfw.lib
+        opengl32
+        winmm
+    )
+
+elseif(APPLE)
+    target_link_libraries(${PROJECT_NAME}
+        "-framework IOKit"
+        "-framework Cocoa"
+        "-framework OpenGL"
+    )
 else()
     target_link_libraries(${PROJECT_NAME} m)
 endif()
