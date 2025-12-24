@@ -159,6 +159,7 @@ typedef struct {
     int texture;
     int ambientColor;
     int lightingModel;
+    int objectAlpha;
 
     // Point Light
     int pointLightEnabled;

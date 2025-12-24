@@ -3,182 +3,70 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <math.h>
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-
 #include "module3.h"
 #include "obj_loader.h"
 
-#define CIRCLE_SEGMENTS 64
+#define HOUSE_COUNT 5
+#define BENCH_COUNT 7
+#define GIFT_COUNT 4
+#define KITE_COUNT 4
+#define CLOUD_COUNT 5
 
-int lighting_model = 0;
+Matrix4x4 house_instances[HOUSE_COUNT];
+Matrix4x4 bench_instances[BENCH_COUNT];
+Matrix4x4 skull_instances[GIFT_COUNT];
+Matrix4x4 kite_instances[KITE_COUNT];
+Matrix4x4 cloud_instances[CLOUD_COUNT];
 
-const float camera_move_speed = 10.0f;
-const float sensitivity = 0.3f;
+#define MAX_OBJECTS (HOUSE_COUNT + BENCH_COUNT + GIFT_COUNT + KITE_COUNT + CLOUD_COUNT + 1)
 
-float global_rotation_x = 0.0f;
-float global_rotation_y = 0.0f;
-float global_rotation_z = 0.0f;
+Vector3 all_positions[MAX_OBJECTS];
+float all_radii[MAX_OBJECTS];
+int placed_count = 0;
 
-float pos_x = 0.0f;
-float pos_y = 0.0f;
-float zoom = 0.0f;
+GLuint terrain_vao = 0;
+GLuint terrain_vbo = 0;
+GLuint terrain_ebo = 0;
+GLuint terrain_texture = 0;
 
-float scale_x = 1.0f;
-float scale_y = 1.0f;
-float scale_z = 1.0f;
+int terrain_index_count = 0;
 
-const float rotation_speed = 0.05f;
-const float move_speed = 0.05f;
-const float scale_speed = 0.05f;
+unsigned char* terrain_heightmap = NULL;
+int terrain_w = 0;
+int terrain_h = 0;
+float terrain_scale = 1.0f;   // scale по XZ
+float terrain_height_scale = 15.0f; // высота
+int terrain_size = 256;
 
-ColorRGB color_boost = { 0.0f, 0.0f, 0.0f };
-float boost_step = 0.1f;
+const float sensitivity = 0.1f;
 
-float texture_mix = 0.0f; 
-float mix_step = 1;
+Vector3 airship_pos = { 3.0f, 15.0f, 3.0f };
+Vector3 airship_rot = { 0.0f, 0.0f, 0.0f }; 
+float airship_speed = 8.0f;
+float airship_turn_speed = 6.0f;
 
-GradientVertex3D cube_vertices[] = {
-    { { -0.5, -0.5, +0.5 }, { 0.0f, 0.0f, 0.5f } }, 
-    { { -0.5, +0.5, +0.5 }, { 0.0f, 0.5f, 0.0f } }, 
-    { { +0.5, +0.5, +0.5 }, { 0.5f, 0.5f, 0.5f } }, 
-    { { +0.5, +0.5, +0.5 }, { 0.5f, 0.5f, 0.5f } },
-    { { +0.5, -0.5, +0.5 }, { 0.5f, 0.0f, 0.0f } }, 
-    { { -0.5, -0.5, +0.5 }, { 0.0f, 0.0f, 0.5f } },
+float camera_yaw = 0.0f;
+float camera_pitch = 0.3f;
+float camera_distance = 20.0f;
 
-    { { -0.5, -0.5, -0.5 }, { 0.3f, 0.0f, 0.3f } }, 
-    { { +0.5, +0.5, -0.5 }, { 0.5f, 0.5f, 0.0f } }, 
-    { { -0.5, +0.5, -0.5 }, { 0.3f, 0.3f, 0.0f } }, 
-    { { +0.5, +0.5, -0.5 }, { 0.5f, 0.5f, 0.0f } },
-    { { -0.5, -0.5, -0.5 }, { 0.3f, 0.0f, 0.3f } },
-    { { +0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f } }, 
-
-    { { -0.5, +0.5, -0.5 }, { 0.0f, 0.5f, 0.5f } },
-    { { -0.5, +0.5, +0.5 }, { 0.0f, 1.0f, 1.0f } }, 
-    { { +0.5, +0.5, +0.5 }, { 0.8f, 0.8f, 0.8f } }, 
-    { { +0.5, +0.5, +0.5 }, { 0.8f, 0.8f, 0.8f } },
-    { { +0.5, +0.5, -0.5 }, { 0.5f, 0.5f, 1.0f } }, 
-    { { -0.5, +0.5, -0.5 }, { 0.0f, 0.5f, 0.5f } },
-
-    { { -0.5, -0.5, -0.5 }, { 0.3f, 0.2f, 0.1f } }, 
-    { { +0.5, -0.5, +0.5 }, { 0.6f, 0.4f, 0.2f } }, 
-    { { -0.5, -0.5, +0.5 }, { 0.4f, 0.3f, 0.1f } }, 
-    { { +0.5, -0.5, +0.5 }, { 0.6f, 0.4f, 0.2f } },
-    { { -0.5, -0.5, -0.5 }, { 0.3f, 0.2f, 0.1f } },
-    { { +0.5, -0.5, -0.5 }, { 0.5f, 0.3f, 0.1f } }, 
-
-    { { +0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.3f } }, 
-    { { +0.5, -0.5, +0.5 }, { 1.0f, 0.0f, 0.5f } },
-    { { +0.5, +0.5, +0.5 }, { 1.0f, 0.5f, 0.8f } }, 
-    { { +0.5, +0.5, +0.5 }, { 1.0f, 0.5f, 0.8f } },
-    { { +0.5, +0.5, -0.5 }, { 0.8f, 0.3f, 0.6f } }, 
-    { { +0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.3f } },
-
-    { { -0.5, -0.5, -0.5 }, { 0.4f, 0.2f, 0.0f } }, 
-    { { -0.5, +0.5, +0.5 }, { 1.0f, 0.6f, 0.0f } }, 
-    { { -0.5, -0.5, +0.5 }, { 0.8f, 0.4f, 0.0f } },
-    { { -0.5, +0.5, +0.5 }, { 1.0f, 0.6f, 0.0f } },
-    { { -0.5, -0.5, -0.5 }, { 0.4f, 0.2f, 0.0f } },
-    { { -0.5, +0.5, -0.5 }, { 0.9f, 0.5f, 0.1f } }, 
-};
-
-TexturedVertex3D textured_cube_vertices[] = {
-    { { -0.5, -0.5, +0.5 }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-    { { -0.5, +0.5, +0.5 }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
-    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-    { { +0.5, -0.5, +0.5 }, { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-    { { -0.5, -0.5, +0.5 }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-
-    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 1.0f, 0.0f } },
-    { { -0.5, +0.5, -0.5 }, { 0.0f, 0.5f, 0.5f }, { 1.0f, 1.0f } },
-    { { +0.5, +0.5, -0.5 }, { 0.5f, 0.5f, 0.0f }, { 0.0f, 1.0f } },
-    { { +0.5, +0.5, -0.5 }, { 0.5f, 0.5f, 0.0f }, { 0.0f, 1.0f } },
-    { { +0.5, -0.5, -0.5 }, { 0.0f, 0.5f, 0.0f }, { 0.0f, 0.0f } },
-    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 1.0f, 0.0f } },
-
-    { { -0.5, +0.5, -0.5 }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-    { { -0.5, +0.5, +0.5 }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-    { { +0.5, +0.5, -0.5 }, { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-    { { -0.5, +0.5, -0.5 }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-
-    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 1.0f, 1.0f } },
-    { { -0.5, -0.5, +0.5 }, { 0.0f, 0.5f, 0.5f }, { 1.0f, 0.0f } },
-    { { +0.5, -0.5, +0.5 }, { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f } },
-    { { +0.5, -0.5, +0.5 }, { 0.5f, 0.5f, 0.0f }, { 0.0f, 0.0f } },
-    { { +0.5, -0.5, -0.5 }, { 0.0f, 0.5f, 0.0f }, { 0.0f, 1.0f } },
-    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 1.0f, 1.0f } },
-
-    { { +0.5, -0.5, -0.5 }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-    { { +0.5, +0.5, -0.5 }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-    { { +0.5, +0.5, +0.5 }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-    { { +0.5, -0.5, +0.5 }, { 1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-    { { +0.5, -0.5, -0.5 }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-
-    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 0.0f, 0.0f } },
-    { { -0.5, +0.5, -0.5 }, { 0.0f, 0.5f, 0.5f }, { 0.0f, 1.0f } },
-    { { -0.5, +0.5, +0.5 }, { 0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f } },
-    { { -0.5, +0.5, +0.5 }, { 0.5f, 0.5f, 0.0f }, { 1.0f, 1.0f } },
-    { { -0.5, -0.5, +0.5 }, { 0.0f, 0.5f, 0.0f }, { 1.0f, 0.0f } },
-    { { -0.5, -0.5, -0.5 }, { 0.5f, 0.0f, 0.5f }, { 0.0f, 0.0f } },
-};
-
-GradientVertex3D tetrahedron_vertices[] = {
-    { {  0.0f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f } }, 
-    { { -0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
-    { {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f } },
-
-    { {  0.0f, -0.5f,  0.5f }, { 1.0f, 0.5f, 0.0f } }, 
-    { { -0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f, 0.0f } },
-    { {  0.0f,  0.5f,  0.0f }, { 1.0f, 0.0f, 0.0f } }, 
-
-    { {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 1.0f } }, 
-    { {  0.0f, -0.5f,  0.5f }, { 0.5f, 0.0f, 1.0f } }, 
-    { {  0.0f,  0.5f,  0.0f }, { 0.0f, 0.0f, 1.0f } }, 
-
-    { { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.7f, 0.7f } }, 
-    { {  0.5f, -0.5f, -0.5f }, { 0.7f, 1.0f, 0.7f } }, 
-    { {  0.0f,  0.5f,  0.0f }, { 0.7f, 0.7f, 1.0f } }, 
-};
-
-#define CHECKER_SIZE 8  
-#define TEX_SIZE 64 
-
-GradientVertex3D circle_vertices[CIRCLE_SEGMENTS + 2];
-GLuint vertex_buffers[VERTEX_BUFFERS_COUNT];
-GLuint vaos[VAOS_COUNT];
-
-
-void init_circle_vertices();
-void hue_to_rgb(float hue, float* r, float* g, float* b);
 void opengl_debug_message_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *user_param);
 int compile_shader(const char *shader_path);
-GLuint create_solid_color_texture(unsigned char r, unsigned char g, unsigned char b);
 GLuint load_texture_from_file(const char *path);
 float clamp(float x, float low, float high);
-
-Vector3 direction_from_pitch_yaw(float pitch, float yaw);
-void camera_update(Camera *camera);
-
-// Вспомогательная функция для загрузки модели с проверкой нескольких путей
-bool load_obj_model_try_paths(const char **paths, int path_count, OBJModel *model, const char *model_name) {
-    for (int i = 0; i < path_count; i++) {
-        if (load_obj_model(paths[i], model)) {
-            return true;
-        }
-    }
-    fprintf(stderr, "не удалось загрузить %s ни из одного пути!\n", model_name);
-    return false;
-}
+float lerp_angle(float a, float b, float t);
+float randf(float min, float max);
+bool can_place(Vector3 p, float radius);
+bool load_obj_model_try_paths(const char** paths, int path_count, OBJModel* model, const char* model_name);
+void create_terrain(int size, float scale);
+GLuint load_heightmap_texture(const char* path);
+float terrain_height(float x, float z);
 
 int main() {
+    srand((unsigned int)time(NULL));
     Program _program = {0};
     Program *program = &_program;
     Shaders *shaders = &program->shaders;
@@ -187,23 +75,60 @@ int main() {
         .position = { 0, 0, -10 },
         .up = { 0, 1, 0 },
         .field_of_view = DEG2RAD * 30.0f,
-        .near = 0.001f,
+        .near = 0.1f,
         .far = 10000.0f,
         .pitch = 0.0f,
         .yaw = 0.0f,
     };
 
-    //
-    // Обращаю внимание, что любые функции OpenGL
-    // нужно вызывать после open_window().
-    //
+    all_positions[placed_count] = (Vector3){ 0.0f,0.0f,0.0f };
+    placed_count++;
+
+    // Воздушный змей
+    for (int i = 0; i < KITE_COUNT; i++) {
+        Vector3 pos;
+
+        do {
+            pos = (Vector3){
+                randf(-35.0f, 35.0f),
+                randf(9.0f, 14.0f),
+                randf(-35.0f, 35.0f)
+            };
+        } while (!can_place(pos, 4.0f));
+
+        all_positions[placed_count] = pos;
+        all_radii[placed_count] = 4.0f;
+        placed_count++;
+
+        Matrix4x4 m = mat4_identity();
+        m = mat4_multiply(m, mat4_translation(pos));
+        m = mat4_multiply(m, mat4_scale((Vector3) { 0.3f, 0.3f, 0.3f }));
+        kite_instances[i] = m;
+    }
+
+    // ОБлака
+    for (int i = 0; i < CLOUD_COUNT; i++) {
+        Vector3 pos;
+
+        do {
+            pos = (Vector3){
+                randf(-35.0f, 35.0f),
+                randf(12.0f, 15.0f),
+                randf(-35.0f, 35.0f)
+            };
+        } while (!can_place(pos, 4.0f));
+
+        all_positions[placed_count] = pos;
+        all_radii[placed_count] = 4.0f;
+        placed_count++;
+
+        Matrix4x4 m = mat4_identity();
+        m = mat4_multiply(m, mat4_translation(pos));
+        m = mat4_multiply(m, mat4_scale((Vector3) { 0.1f, 0.1f, 0.1f }));
+        cloud_instances[i] = m;
+    }
+
     open_window(program, 800, 600, "Модуль 3: OpenGL 🦭");
-
-    // Инициализируем векторы направления камеры
-    camera.aspect = 800.0f / 600.0f;
-    camera_update(&camera);
-
-    init_circle_vertices();
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -215,65 +140,88 @@ int main() {
         printf("glDebugMessageCallback не поддерживается на этой платформе\n");
     }
 
-    //glEnable(GL_CULL_FACE);
-    //glCullFace(GL_FRONT);
+    int terrain_shader = compile_shader("shaders/terrain");
+
+    create_terrain(terrain_size, terrain_scale);
+    float terrain_world_size = (terrain_size - 1) * terrain_scale;
+
+    terrain_texture = load_heightmap_texture("models/indiv_3/heightmap.png");
+
+    if (terrain_texture == 0) {
+        fprintf(stderr, "Terrain heightmap failed to load\n");
+        exit(1); 
+    }
+
+    // Дома
+    for (int i = 0; i < HOUSE_COUNT; i++) {
+        Vector3 pos;
+
+        do {
+            pos = (Vector3){
+                randf(-50.0f, 50.0f),
+                0.0f,
+                randf(-50.0f, 50.0f)
+            };
+            pos.y = terrain_height(pos.x, pos.z) + 0.01f;
+        } while (!can_place(pos, 6.0f));
+
+        all_positions[placed_count] = pos;
+        all_radii[placed_count] = 6.0f;
+        placed_count++;
+
+        Matrix4x4 m = mat4_identity();
+        m = mat4_multiply(m, mat4_translation(pos));
+        m = mat4_multiply(m, mat4_scale((Vector3) { 1.0f, 1.0f, 1.0f }));
+        house_instances[i] = m;
+    }
+
+    // Лавки
+    for (int i = 0; i < BENCH_COUNT; i++) {
+        Vector3 pos;
+
+        do {
+            pos = (Vector3){
+                randf(-40.0f, 40.0f),
+                0.0f,
+                randf(-40.0f, 40.0f)
+            };
+            pos.y = terrain_height(pos.x, pos.z) + 0.4f;
+        } while (!can_place(pos, 4.0f));
+
+        all_positions[placed_count] = pos;
+        all_radii[placed_count] = 4.0f;
+        placed_count++;
+
+        Matrix4x4 m = mat4_identity();
+        m = mat4_multiply(m, mat4_translation(pos));
+        m = mat4_multiply(m, mat4_scale((Vector3) { 1.5f, 1.5f, 1.5f }));
+        bench_instances[i] = m;
+    }
+
+    // Подарки
+    for (int i = 0; i < GIFT_COUNT; i++) {
+        Vector3 pos;
+
+        do {
+            pos = (Vector3){
+                randf(-35.0f, 35.0f),
+                0.0f,
+                randf(-35.0f, 35.0f)
+            };
+            pos.y = terrain_height(pos.x, pos.z) + 0.01f;
+        } while (!can_place(pos, 4.0f));
+
+        all_positions[placed_count] = pos;
+        all_radii[placed_count] = 4.0f;
+        placed_count++;
+
+        Matrix4x4 m = mat4_identity();
+        m = mat4_multiply(m, mat4_translation(pos));
+        m = mat4_multiply(m, mat4_scale((Vector3) { 0.05f, 0.05f, 0.05f }));
+        skull_instances[i] = m;
+    }
 
     {
-        int gradient = compile_shader("shaders/gradient3D");
-
-        shaders->gradient.id = gradient;
-        shaders->gradient.vertex_position = glGetAttribLocation(gradient, "vertex_position");
-        shaders->gradient.vertex_color = glGetAttribLocation(gradient, "vertex_color");
-        shaders->gradient.time = glGetUniformLocation(gradient, "time");
-        shaders->gradient.view = glGetUniformLocation(gradient, "view");
-        shaders->gradient.proj = glGetUniformLocation(gradient, "proj");
-        shaders->gradient.world = glGetUniformLocation(gradient, "world");
-
-        int textured = compile_shader("shaders/textured_cube");
-
-        shaders->textured.id = textured;
-        shaders->textured.vertex_position = glGetAttribLocation(textured, "aPos");
-        shaders->textured.vertex_color = glGetAttribLocation(textured, "aColor");
-        shaders->textured.vertex_tex = glGetAttribLocation(textured, "aTexCoord");
-        shaders->textured.texture = glGetUniformLocation(textured, "ourTexture");
-        shaders->textured.color_boost = glGetUniformLocation(textured, "colorBoost");
-        shaders->textured.view = glGetUniformLocation(textured, "view");
-        shaders->textured.proj = glGetUniformLocation(textured, "proj");
-        shaders->textured.world = glGetUniformLocation(textured, "world");
-
-        int mix_textured = compile_shader("shaders/mix_textured_cube");
-
-        shaders->mix_textured.id = mix_textured;
-        shaders->mix_textured.vertex_position = glGetAttribLocation(mix_textured, "aPos");
-        shaders->mix_textured.vertex_color = glGetAttribLocation(mix_textured, "aColor");
-        shaders->mix_textured.vertex_tex = glGetAttribLocation(mix_textured, "aTexCoord");
-        shaders->mix_textured.texture1 = glGetUniformLocation(mix_textured, "texture1");
-        shaders->mix_textured.texture2 = glGetUniformLocation(mix_textured, "texture2");
-        shaders->mix_textured.mix_ratio = glGetUniformLocation(mix_textured, "mixRatio");
-        shaders->mix_textured.view = glGetUniformLocation(mix_textured, "view");
-        shaders->mix_textured.proj = glGetUniformLocation(mix_textured, "proj");
-        shaders->mix_textured.world = glGetUniformLocation(mix_textured, "world");
-
-        int obj_textured = compile_shader("shaders/obj_textured");
-
-        shaders->obj_textured.id = obj_textured;
-        shaders->obj_textured.vertex_position = glGetAttribLocation(obj_textured, "aPos");
-        shaders->obj_textured.vertex_tex = glGetAttribLocation(obj_textured, "aTexCoord");
-        shaders->obj_textured.texture = glGetUniformLocation(obj_textured, "ourTexture");
-        shaders->obj_textured.view = glGetUniformLocation(obj_textured, "view");
-        shaders->obj_textured.proj = glGetUniformLocation(obj_textured, "proj");
-        shaders->obj_textured.world = glGetUniformLocation(obj_textured, "world");
-
-        int obj_instanced = compile_shader("shaders/obj_instanced");
-
-        shaders->obj_instanced.id = obj_instanced;
-        shaders->obj_instanced.vertex_position = glGetAttribLocation(obj_instanced, "aPos");
-        shaders->obj_instanced.vertex_tex = glGetAttribLocation(obj_instanced, "aTexCoord");
-        shaders->obj_instanced.texture = glGetUniformLocation(obj_instanced, "ourTexture");
-        shaders->obj_instanced.view = glGetUniformLocation(obj_instanced, "view");
-        shaders->obj_instanced.proj = glGetUniformLocation(obj_instanced, "proj");
-
-        // Instanced шейдер с освещением (используется для всех объектов)
         int lit_instanced = compile_shader("shaders/lit_instanced");
 
         shaders->lit_instanced.id = lit_instanced;
@@ -283,8 +231,6 @@ int main() {
         shaders->lit_instanced.texture = glGetUniformLocation(lit_instanced, "ourTexture");
         shaders->lit_instanced.ambientColor = glGetUniformLocation(lit_instanced, "ambientColor");
         shaders->lit_instanced.lightingModel = glGetUniformLocation(lit_instanced, "lightingModel");
-
-        // Point Light
         shaders->lit_instanced.pointLightEnabled = glGetUniformLocation(lit_instanced, "pointLightEnabled");
         shaders->lit_instanced.pointLightPos = glGetUniformLocation(lit_instanced, "pointLightPos");
         shaders->lit_instanced.pointLightColor = glGetUniformLocation(lit_instanced, "pointLightColor");
@@ -292,14 +238,10 @@ int main() {
         shaders->lit_instanced.pointLightConstant = glGetUniformLocation(lit_instanced, "pointLightConstant");
         shaders->lit_instanced.pointLightLinear = glGetUniformLocation(lit_instanced, "pointLightLinear");
         shaders->lit_instanced.pointLightQuadratic = glGetUniformLocation(lit_instanced, "pointLightQuadratic");
-
-        // Directional Light
         shaders->lit_instanced.dirLightEnabled = glGetUniformLocation(lit_instanced, "dirLightEnabled");
         shaders->lit_instanced.dirLightDirection = glGetUniformLocation(lit_instanced, "dirLightDirection");
         shaders->lit_instanced.dirLightColor = glGetUniformLocation(lit_instanced, "dirLightColor");
         shaders->lit_instanced.dirLightIntensity = glGetUniformLocation(lit_instanced, "dirLightIntensity");
-
-        // Spot Light
         shaders->lit_instanced.spotLightEnabled = glGetUniformLocation(lit_instanced, "spotLightEnabled");
         shaders->lit_instanced.spotLightPos = glGetUniformLocation(lit_instanced, "spotLightPos");
         shaders->lit_instanced.spotLightDirection = glGetUniformLocation(lit_instanced, "spotLightDirection");
@@ -310,166 +252,97 @@ int main() {
         shaders->lit_instanced.spotLightConstant = glGetUniformLocation(lit_instanced, "spotLightConstant");
         shaders->lit_instanced.spotLightLinear = glGetUniformLocation(lit_instanced, "spotLightLinear");
         shaders->lit_instanced.spotLightQuadratic = glGetUniformLocation(lit_instanced, "spotLightQuadratic");
+        shaders->lit_instanced.objectAlpha = glGetUniformLocation(lit_instanced, "objectAlpha");
     }
 
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
+    OBJModel model_house, model_tree, model_sledge, model_gift, model_bench, model_kite, model_cloud;
+    GLuint texture_tree, texture_sledge, texture_gift, texture_house, texture_bench, texture_kite, texture_cloud;
+    {
+        const char* house_paths[] = {
+            "models/indiv_3/Wood_house.obj",
+            "../models/indiv_3/Wood_house.obj"
+        };
+        if (!load_obj_model_try_paths(house_paths, 2, &model_house, "Бомба"))  return 1;
+        setup_obj_model_buffers(&model_house);
 
-    unsigned char* checker_pixels = malloc(TEX_SIZE * TEX_SIZE * 3);
+        const char* tree_path[] = {
+            "models/indiv_3/Christmas Tree-blobj.obj",
+            "../models/indiv_3/Christmas Tree-blobj.obj"
+        };
+        if (!load_obj_model_try_paths(tree_path, 2, &model_tree, "Елка")) return 1;
+        setup_obj_model_buffers(&model_tree);
 
-    for (int y = 0; y < TEX_SIZE; y++) {
-        for (int x = 0; x < TEX_SIZE; x++) {
-            int index = (y * TEX_SIZE + x) * 3;
+        const char* sledge_paths[] = {
+            "models/indiv_3/Sledge.obj",
+            "../models/indiv_3/Sledge.obj"
+        };
+        if (!load_obj_model_try_paths(sledge_paths, 2, &model_sledge, "Сани")) return 1;
+        setup_obj_model_buffers(&model_sledge);
 
-            int cellX = x / CHECKER_SIZE;
-            int cellY = y / CHECKER_SIZE;
+        const char* gift_paths[] = {
+            "models/indiv_3/Gift.obj",
+            "../models/indiv_3/Gift.obj"
+        };
+        if (!load_obj_model_try_paths(gift_paths, 2, &model_gift, "Череп")) return 1;
+        setup_obj_model_buffers(&model_gift);
 
-            if ((cellX + cellY) % 2 == 0) {
-                checker_pixels[index] = 255;
-                checker_pixels[index + 1] = 255;
-                checker_pixels[index + 2] = 255;
-            }
-            else {
-                checker_pixels[index] = 0;
-                checker_pixels[index + 1] = 0;
-                checker_pixels[index + 2] = 0;
-            }
+        const char* bench_paths[] = {
+            "models/indiv_3/Classic_Garden_Bench.obj",
+            "../models/indiv_3/Classic_Garden_Bench.obj"
+        };
+        if (!load_obj_model_try_paths(bench_paths, 2, &model_bench, "Лавка")) return 1;
+        setup_obj_model_buffers(&model_bench);
+
+        const char* kite_paths[] = {
+            "models/indiv_3/Kite_OBJ.obj",
+            "../models/indiv_3/Kite_OBJ.obj"
+        };
+        if (!load_obj_model_try_paths(kite_paths, 2, &model_kite, "Воздушный змей")) return 1;
+        setup_obj_model_buffers(&model_kite);
+
+        const char* cloud_paths[] = {
+            "models/indiv_3/cloud rain.obj",
+            "../models/indiv_3/cloud rain.obj"
+        };
+        if (!load_obj_model_try_paths(cloud_paths, 2, &model_cloud, "Воздушный змей")) return 1;
+        setup_obj_model_buffers(&model_cloud);
+
+        texture_tree = load_texture_from_file("models/indiv_3/UV Christmas Tree.png");
+        if (texture_tree == 0) {
+            texture_tree = load_texture_from_file("../models/indiv_3/UV Christmas Tree.png");
+        }
+
+        texture_sledge = load_texture_from_file("models/indiv_3/sleigh_DefaultMaterial_BaseColor.png");
+        if (texture_sledge == 0) {
+            texture_sledge = load_texture_from_file("../models/indiv_3/sleigh_DefaultMaterial_BaseColor.png");
+        }
+
+        texture_gift = load_texture_from_file("models/indiv_3/gift.jpg");
+        if (texture_gift == 0) {
+            texture_gift = load_texture_from_file("../models/indiv_3/gift.jpg");
+        }
+
+        texture_house = load_texture_from_file("models/indiv_3/Wood_house_BaseColor.1001.jpg");
+        if (texture_house == 0) {
+            texture_house = load_texture_from_file("../models/indiv_3/Wood_house_BaseColor.1001.jpg");
+        }
+
+        texture_bench = load_texture_from_file("models/indiv_3/Bench_Base_Color_4K.jpg");
+        if (texture_bench == 0) {
+            texture_bench = load_texture_from_file("../models/indiv_3/Bench_Base_Color_4K.jpg");
+        }
+
+        texture_kite = load_texture_from_file("models/indiv_3/Kite_TT.jpg");
+        if (texture_kite == 0) {
+            texture_kite = load_texture_from_file("../models/indiv_3/Kite_TT.jpg");
+        }
+
+        texture_cloud = load_texture_from_file("models/indiv_3/clouds.png");
+        if (texture_cloud == 0) {
+            texture_cloud = load_texture_from_file("../models/indiv_3/clouds.png");
         }
     }
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, TEX_SIZE, TEX_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, checker_pixels);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    free(checker_pixels);
 
-    GLuint texture1;
-    glGenTextures(1, &texture1);
-    glBindTexture(GL_TEXTURE_2D, texture1);
-    unsigned char chessboard[] = {
-        255,255,255,  0,0,0,  255,255,255,  0,0,0,
-        0,0,0,  255,255,255,  0,0,0,  255,255,255,
-        255,255,255,  0,0,0,  255,255,255,  0,0,0,
-        0,0,0,  255,255,255,  0,0,0,  255,255,255,
-    };
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, chessboard);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    GLuint texture2;
-    glGenTextures(1, &texture2);
-    glBindTexture(GL_TEXTURE_2D, texture2);
-    unsigned char stripes[] = {
-        255,0,0,  255,0,0,  0,255,0,  0,255,0,
-        255,0,0,  255,0,0,  0,255,0,  0,255,0,
-        255,0,0,  255,0,0,  0,255,0,  0,255,0,
-        255,0,0,  255,0,0,  0,255,0,  0,255,0,
-    };
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, stripes);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glGenBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);
-    {
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[CUBE]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
-
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TETRAHEDRON]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(tetrahedron_vertices), tetrahedron_vertices, GL_STATIC_DRAW);
-
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[CIRCLE]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(circle_vertices), circle_vertices, GL_STATIC_DRAW);
-
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TEXTURED_CUBE]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(textured_cube_vertices), textured_cube_vertices, GL_STATIC_DRAW);
-
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-    }
-
-    glGenVertexArrays(VAOS_COUNT, vaos);
-    for (int i = 0; i < TEXTURED_CUBE_VAO; i++) {
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[i]);
-        glBindVertexArray(vaos[i]);
-        glEnableVertexAttribArray(shaders->gradient.vertex_position);
-        glVertexAttribPointer(shaders->gradient.vertex_position, 3, GL_FLOAT, GL_FALSE, sizeof(GradientVertex3D), (void *)0);
-        glEnableVertexAttribArray(shaders->gradient.vertex_color);
-        glVertexAttribPointer(shaders->gradient.vertex_color, 3, GL_FLOAT, GL_FALSE, sizeof(GradientVertex3D), (void *)(3 * sizeof(float)));
-    }
-
-    {
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffers[TEXTURED_CUBE]);
-        glBindVertexArray(vaos[TEXTURED_CUBE_VAO]);
-        glEnableVertexAttribArray(shaders->textured.vertex_position);
-        glVertexAttribPointer(shaders->textured.vertex_position, 3, GL_FLOAT, GL_FALSE, sizeof(TexturedVertex3D), (void*)0);
-        glEnableVertexAttribArray(shaders->textured.vertex_color);
-        glVertexAttribPointer(shaders->textured.vertex_color, 3, GL_FLOAT, GL_FALSE, sizeof(TexturedVertex3D), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(shaders->textured.vertex_tex);
-        glVertexAttribPointer(shaders->textured.vertex_tex, 2, GL_FLOAT, GL_FALSE, sizeof(TexturedVertex3D), (void*)(6 * sizeof(float)));
-    }
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    OBJModel model_bomb, model_corona, model_sphinx, model_skull;
-
-    const char *bomb_paths[] = {
-        "models/81-bomb_shading_v005_fbx_obj/bomb_shading_v005.obj",
-        "../models/81-bomb_shading_v005_fbx_obj/bomb_shading_v005.obj"
-    };
-    if (!load_obj_model_try_paths(bomb_paths, 2, &model_bomb, "Бомба")) {
-        return 1;
-    }
-    setup_obj_model_buffers(&model_bomb);
-
-    const char *corona_paths[] = {
-        "models/Corona/Corona.obj",
-        "../models/Corona/Corona.obj"
-    };
-    if (!load_obj_model_try_paths(corona_paths, 2, &model_corona, "Корона")) {
-        return 1;
-    }
-    setup_obj_model_buffers(&model_corona);
-
-    const char *sphinx_paths[] = {
-        "models/10085_egypt_sphinx_iterations-2.obj",
-        "../models/10085_egypt_sphinx_iterations-2.obj"
-    };
-    if (!load_obj_model_try_paths(sphinx_paths, 2, &model_sphinx, "Сфинкс")) {
-        return 1;
-    }
-    setup_obj_model_buffers(&model_sphinx);
-
-    const char *skull_paths[] = {
-        "models/skull/Skull.obj",
-        "../models/skull/Skull.obj"
-    };
-    if (!load_obj_model_try_paths(skull_paths, 2, &model_skull, "Череп")) {
-        return 1;
-    }
-    setup_obj_model_buffers(&model_skull);
-
-    GLuint texture_corona = load_texture_from_file("models/Corona/BotellaText.jpg");
-    if (texture_corona == 0) {
-        texture_corona = load_texture_from_file("../models/Corona/BotellaText.jpg");
-    }
-
-    GLuint texture_sphinx = load_texture_from_file("models/10085_egyptSphinxDiffuseMap.jpg");
-    if (texture_sphinx == 0) {
-        texture_sphinx = load_texture_from_file("../models/10085_egyptSphinxDiffuseMap.jpg");
-    }
-
-    GLuint texture_skull = load_texture_from_file("models/skull/skull.jpg");
-    if (texture_skull == 0) {
-        texture_skull = load_texture_from_file("../models/skull/skull.jpg");
-    }
-
-    GLuint texture_bomb = create_solid_color_texture(80, 80, 85);
-
-    // Создаем instance буфер для instancing (общий для всех моделей)
     #define MAX_INSTANCES 64
     GLuint instance_vbo;
 
@@ -477,9 +350,8 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
     glBufferData(GL_ARRAY_BUFFER, MAX_INSTANCES * sizeof(Matrix4x4), NULL, GL_DYNAMIC_DRAW);
 
-    // Настраиваем instance атрибуты для каждой модели
-    OBJModel* models_to_setup[] = {&model_bomb, &model_skull, &model_corona, &model_sphinx};
-    for (int m = 0; m < 4; m++) {
+    OBJModel* models_to_setup[] = {&model_house, &model_gift, &model_tree, &model_sledge, &model_bench, &model_kite, &model_cloud};
+    for (int m = 0; m < 7; m++) {
         glBindVertexArray(models_to_setup[m]->vao);
         glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
         for (int i = 0; i < 4; i++) {
@@ -492,631 +364,207 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    int mode = MODE_GRADIENT;
-    int figure = CUBE;
-
-    float time = glfwGetTime();
+    float current_time = glfwGetTime();
     float last_frame_time = glfwGetTime();
     float delta_time = 1 / 60.0f;
+
     while (!glfwWindowShouldClose(program->window)) {
         camera.aspect = (float)program->window_info.width / (float)program->window_info.height;
-        camera_update(&camera);
-
-        if (program->keys[GLFW_KEY_1].pressed_this_frame) mode = MODE_GRADIENT;
-        if (program->keys[GLFW_KEY_2].pressed_this_frame) mode = MODE_TEXTURED;
-        if (program->keys[GLFW_KEY_3].pressed_this_frame) mode = MODE_MIX_TEXTURED;
-        if (program->keys[GLFW_KEY_4].pressed_this_frame) mode = MODE_SOLAR_SYSTEM;
-        if (program->keys[GLFW_KEY_5].pressed_this_frame) mode = MODE_MULTIPLE_MODELS;
-        if (program->keys[GLFW_KEY_6].pressed_this_frame) mode = MODE_LIT_SCENE;
-
-        //if (program->keys[GLFW_KEY_Z].pressed_this_frame) figure = TETRAHEDRON;
-        //if (program->keys[GLFW_KEY_X].pressed_this_frame) figure = CUBE;
-        //if (program->keys[GLFW_KEY_C].pressed_this_frame) figure = CIRCLE;
-        //if (program->keys[GLFW_KEY_V].pressed_this_frame) figure = TEXTURED_CUBE;
-
-        if (program->keys[GLFW_KEY_B].pressed) global_rotation_x += rotation_speed;
-        if (program->keys[GLFW_KEY_N].pressed) global_rotation_y += rotation_speed;
-        if (program->keys[GLFW_KEY_M].pressed) global_rotation_z += rotation_speed;
-
-        if (program->keys[GLFW_KEY_A].pressed) pos_x -= move_speed;
-        if (program->keys[GLFW_KEY_D].pressed) pos_x += move_speed;
-        if (program->keys[GLFW_KEY_W].pressed) pos_y += move_speed;
-        if (program->keys[GLFW_KEY_S].pressed) pos_y -= move_speed;
-
-        if (program->keys[GLFW_KEY_Q].pressed) zoom += 0.02;
-        if (program->keys[GLFW_KEY_E].pressed) zoom -= 0.02;
-
-        if (program->keys[GLFW_KEY_U].pressed) scale_x += scale_speed;
-        if (program->keys[GLFW_KEY_J].pressed) scale_x -= scale_speed;
-        if (program->keys[GLFW_KEY_I].pressed) scale_y += scale_speed;
-        if (program->keys[GLFW_KEY_K].pressed) scale_y -= scale_speed;
-        if (program->keys[GLFW_KEY_O].pressed) scale_z += scale_speed;
-        if (program->keys[GLFW_KEY_L].pressed) scale_z -= scale_speed;
-
-        if (program->keys[GLFW_KEY_4].pressed) color_boost.r += boost_step; // + Красный
-        if (program->keys[GLFW_KEY_6].pressed) color_boost.g += boost_step; // + Зелёный
-        if (program->keys[GLFW_KEY_8].pressed) color_boost.b += boost_step; // + Синий
-
-        if (program->keys[GLFW_KEY_5].pressed) color_boost.r -= boost_step; // - Красный
-        if (program->keys[GLFW_KEY_7].pressed) color_boost.g -= boost_step; // - Зелёный
-        if (program->keys[GLFW_KEY_9].pressed) color_boost.b -= boost_step; // -Синий
 
         {
-            camera.yaw -= program->mouse.move.x * sensitivity * delta_time;
-            camera.pitch += program->mouse.move.y * sensitivity * delta_time;
-            camera.pitch = clamp(camera.pitch, -PI / 2, PI / 2);
+            camera_yaw -= program->mouse.move.x * sensitivity * delta_time;
+            camera_pitch -= program->mouse.move.y * sensitivity * delta_time;
 
-            Vector3 move_direction = {0};
+            Vector3 cam_forward = {sinf(camera_yaw),0.0f, cosf(camera_yaw) };
+            Vector3 cam_right = {cosf(camera_yaw), 0.0f,-sinf(camera_yaw)};
 
-            if (program->keys[GLFW_KEY_A].pressed) move_direction.x += 1;
-            if (program->keys[GLFW_KEY_D].pressed) move_direction.x -= 1;
-            if (program->keys[GLFW_KEY_W].pressed) move_direction.z += 1;
-            if (program->keys[GLFW_KEY_S].pressed) move_direction.z -= 1;
-            if (program->keys[GLFW_KEY_Q].pressed) move_direction.y -= 1;
-            if (program->keys[GLFW_KEY_E].pressed) move_direction.y += 1;
+            Vector3 move = { 0 };
 
-            move_direction = vec3_normalize(move_direction);
+            if (program->keys[GLFW_KEY_W].pressed) move = vec3_add(move, vec3_multiply(cam_forward, -1.0f));
+            if (program->keys[GLFW_KEY_S].pressed) move = vec3_add(move, cam_forward);
+            if (program->keys[GLFW_KEY_D].pressed) move = vec3_add(move, cam_right);
+            if (program->keys[GLFW_KEY_A].pressed) move = vec3_add(move, vec3_multiply(cam_right, -1.0f));
+            if (program->keys[GLFW_KEY_Q].pressed) move.y -= 1.0f;
+            if (program->keys[GLFW_KEY_E].pressed) move.y += 1.0f;
 
-            Vector3 r = vec3_multiply(camera.right, move_direction.x);
-            Vector3 u = vec3_multiply(camera.up, move_direction.y);
-            Vector3 f = vec3_multiply(camera.forward, move_direction.z);
+            camera_pitch = clamp(camera_pitch, -1.2f, 1.2f);
 
-            Vector3 direction = vec3_normalize(vec3_add(r, vec3_add(u, f)));
+            if (vec3_length(move) > 0.0f) {
+                move = vec3_normalize(move);
+                airship_pos = vec3_add(airship_pos,vec3_multiply(move, airship_speed * delta_time));
 
-            camera.position = vec3_add(camera.position, vec3_multiply(direction, camera_move_speed * delta_time));
+                float target_yaw = atan2f(move.x, move.z);
+                airship_rot.y = lerp_angle(airship_rot.y,target_yaw,airship_turn_speed * delta_time);
+            }
+
+            Vector3 offset;
+            offset.x = camera_distance * cosf(camera_pitch) * sinf(camera_yaw);
+            offset.y = camera_distance * sinf(camera_pitch);
+            offset.z = camera_distance * cosf(camera_pitch) * cosf(camera_yaw);
+
+            Vector3 camera_target = airship_pos;
+            camera_target.y += 10.0f; 
+            camera.position = vec3_add(camera_target, offset);
         }
 
-        if (color_boost.r < 0.0f) color_boost.r = 0.0f;
-        if (color_boost.g < 0.0f) color_boost.g = 0.0f;
-        if (color_boost.b < 0.0f) color_boost.b = 0.0f;
-
-        if (color_boost.r > 2.0f) color_boost.r = 2.0f;
-        if (color_boost.g > 2.0f) color_boost.g = 2.0f;
-        if (color_boost.b > 2.0f) color_boost.b = 2.0f;
-
-        if (program->keys[GLFW_KEY_RIGHT].pressed) {
-            texture_mix += mix_step * delta_time;
-            if (texture_mix > 1.0f) texture_mix = 1.0f;
-        }
-        if (program->keys[GLFW_KEY_LEFT].pressed) {
-            texture_mix -= mix_step * delta_time;
-            if (texture_mix < 0.0f) texture_mix = 0.0f;
-        }
-
-        if (program->keys[GLFW_KEY_R].pressed_this_frame) {
-            global_rotation_x = global_rotation_y = global_rotation_z = 0.0f;
-            pos_x = pos_y = zoom = 0.0f;
-            scale_x = scale_y = scale_z = 1.0f;
-            color_boost.r = color_boost.g = color_boost.b = 0.0f;
-        }
-
-        if (program->keys[GLFW_KEY_Z].pressed_this_frame) lighting_model = 0;
-        if (program->keys[GLFW_KEY_X].pressed_this_frame) lighting_model = 1;
-        if (program->keys[GLFW_KEY_C].pressed_this_frame) lighting_model = 2;
-
-        Vector3 target = camera.position;
-        target.x += camera.forward.x;
-        target.y += camera.forward.y;
-        target.z += camera.forward.z;
-        Matrix4x4 view = mat4_look_at(camera.position, target, (Vector3) { 0, 1, 0 });
+        Matrix4x4 view = mat4_look_at(camera.position,airship_pos,(Vector3) {0, 1, 0});
         Matrix4x4 proj = mat4_perspective(camera.field_of_view, camera.aspect, camera.near, camera.far);
-
-        Vector3 translation = (Vector3) { .x = 0, .y = 0, .z = 0 };
-        Vector3 rotation = (Vector3) { .x = global_rotation_x, .y = global_rotation_y, .z = global_rotation_z };
-        Vector3 scale = (Vector3) { .x = scale_x, .y = scale_y, .z = scale_z };
-        Matrix4x4 world = mat4_world(translation, rotation, scale);
-
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        switch (mode) {
-            case MODE_TEXTURED: {
-                glUseProgram(shaders->textured.id);
-                glUniform3f(shaders->textured.color_boost, color_boost.r, color_boost.g, color_boost.b);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture);
-                glUniform1i(shaders->textured.texture, 0);
-                glUniformMatrix4fv(shaders->gradient.world, 1, true, world.m);
-                glUniformMatrix4fv(shaders->gradient.view, 1, false, view.m);
-                glUniformMatrix4fv(shaders->gradient.proj, 1, false, proj.m);
-            } break;
-
-            case MODE_GRADIENT: {
-                glUseProgram(shaders->gradient.id);
-                glUniform1f(shaders->gradient.time, time);
-                glUniformMatrix4fv(shaders->gradient.world, 1, true, world.m);
-                glUniformMatrix4fv(shaders->gradient.view, 1, false, view.m);
-                glUniformMatrix4fv(shaders->gradient.proj, 1, false, proj.m);
-            } break;
-
-            case MODE_MIX_TEXTURED: {
-                glUseProgram(shaders->mix_textured.id);
-                glUniform1f(shaders->mix_textured.mix_ratio, texture_mix);
-                glUniformMatrix4fv(shaders->mix_textured.world, 1, true, world.m);
-                glUniformMatrix4fv(shaders->mix_textured.view, 1, false, view.m);
-                glUniformMatrix4fv(shaders->mix_textured.proj, 1, false, proj.m);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture1);
-                glUniform1i(shaders->mix_textured.texture1, 0);
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, texture2);
-                glUniform1i(shaders->mix_textured.texture2, 1);
-            } break;
-
-            case MODE_SOLAR_SYSTEM: {
-                glDisable(GL_BLEND);
-
-                glEnable(GL_DEPTH_TEST);
-                glDepthFunc(GL_LESS);
-
-                glDisable(GL_CULL_FACE);
-
-                glFrontFace(GL_CCW);
-
-                glUseProgram(shaders->obj_textured.id);
-                glUniformMatrix4fv(shaders->obj_textured.view, 1, false, view.m);
-                glUniformMatrix4fv(shaders->obj_textured.proj, 1, false, proj.m);
-
-                {
-                    glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, texture_corona);
-                    glUniform1i(shaders->obj_textured.texture, 0);
-
-                    Matrix4x4 sun_world = mat4_identity();
-                    sun_world = mat4_multiply(sun_world, mat4_scale((Vector3){0.05f, 0.05f, 0.05f}));
-                    sun_world = mat4_multiply(sun_world, mat4_rotation_y(time * 0.3f));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, sun_world.m);
-                    glBindVertexArray(model_corona.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_corona.vertex_count);
-                }
-
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture_sphinx);
-                glUniform1i(shaders->obj_textured.texture, 0);
-
-                {
-                    float orbit_radius = 7.0f;
-                    float orbit_speed = 0.8f;
-                    float angle = time * orbit_speed;
-
-                    Matrix4x4 w = mat4_identity();
-                    w = mat4_multiply(w,
-                        mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                    w = mat4_multiply(w, mat4_rotation_y(time * 1.8f));
-                    w = mat4_multiply(w, mat4_rotation_x(-PI / 2.0f));
-                    w = mat4_multiply(w, mat4_scale((Vector3){0.002f, 0.002f, 0.002f}));
-
-                    glUniformMatrix4fv(shaders->obj_textured.world, 1, true, w.m);
-                    glBindVertexArray(model_sphinx.vao);
-                    glDrawArrays(GL_TRIANGLES, 0, model_sphinx.vertex_count);
-                }
-
-                glUseProgram(shaders->obj_instanced.id);
-                glUniformMatrix4fv(shaders->obj_instanced.view, 1, false, view.m);
-                glUniformMatrix4fv(shaders->obj_instanced.proj, 1, false, proj.m);
-
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture_bomb);
-                glUniform1i(shaders->obj_instanced.texture, 0);
-
-                {
-                    Matrix4x4 bomb_instances[6];
-                    int bomb_count = 0;
-
-                    {
-                        float orbit_radius = 4.0f;
-                        float orbit_speed = 1.5f;
-                        float angle = time * orbit_speed;
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                        w = mat4_multiply(w, mat4_rotation_y(time * 2.0f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
-                        bomb_instances[bomb_count++] = w;
-                    }
-
-                    {
-                        float orbit_radius = 6.5f;
-                        float orbit_speed = 1.0f;
-                        float angle = time * orbit_speed + PI / 3.0f;
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                        w = mat4_multiply(w, mat4_rotation_x(PI / 2.0f));
-                        w = mat4_multiply(w, mat4_rotation_z(time * 3.0f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.025f, 0.025f, 0.025f}));
-                        bomb_instances[bomb_count++] = w;
-                    }
-
-                    {
-                        float orbit_radius = 9.0f;
-                        float orbit_speed = 0.7f;
-                        float angle = time * orbit_speed + 2.0f * PI / 3.0f;
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                        w = mat4_multiply(w, mat4_rotation_y(time * 1.5f));
-                        w = mat4_multiply(w, mat4_rotation_x(time * 1.0f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.015f, 0.015f, 0.015f}));
-                        bomb_instances[bomb_count++] = w;
-                    }
-
-                    {
-                        float orbit_radius = 11.5f;
-                        float orbit_speed = 0.5f;
-                        float angle = time * orbit_speed + PI;
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                        w = mat4_multiply(w, mat4_rotation_y(time * 2.5f));
-                        w = mat4_multiply(w, mat4_rotation_z(time * 1.2f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
-                        bomb_instances[bomb_count++] = w;
-                    }
-
-                    {
-                        float orbit_radius = 14.0f;
-                        float orbit_speed = 0.35f;
-                        float angle = time * orbit_speed + 4.0f * PI / 3.0f;
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                        w = mat4_multiply(w, mat4_rotation_y(PI / 2.0f));
-                        w = mat4_multiply(w, mat4_rotation_x(time * 4.0f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.022f, 0.022f, 0.022f}));
-                        bomb_instances[bomb_count++] = w;
-                    }
-
-                    {
-                        float orbit_radius = 8.0f;
-                        float orbit_speed = 0.9f;
-                        float angle = time * orbit_speed + 5.0f * PI / 3.0f;
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0.5f * sinf(time * 2.0f), orbit_radius * sinf(angle)}));
-                        w = mat4_multiply(w, mat4_rotation_y(time * 2.0f));
-                        w = mat4_multiply(w, mat4_rotation_x(time * 0.5f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
-                        bomb_instances[bomb_count++] = w;
-                    }
-
-                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, bomb_count * sizeof(Matrix4x4), bomb_instances);
-                    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-                    glBindVertexArray(model_bomb.vao);
-                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_bomb.vertex_count, bomb_count);
-                }
-
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture_skull);
-                glUniform1i(shaders->obj_instanced.texture, 0);
-
-                {
-                    Matrix4x4 skull_instances[3];
-                    int skull_count = 0;
-
-                    {
-                        float orbit_radius = 5.5f;
-                        float orbit_speed = 1.3f;
-                        float angle = time * orbit_speed + PI / 4.0f;
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                        w = mat4_multiply(w, mat4_rotation_y(time * 2.5f));
-                        w = mat4_multiply(w, mat4_rotation_z(time * 0.8f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.015f, 0.015f, 0.015f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    {
-                        float orbit_radius = 10.0f;
-                        float orbit_speed = 0.6f;
-                        float angle = time * orbit_speed + PI;
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0, orbit_radius * sinf(angle)}));
-                        w = mat4_multiply(w, mat4_rotation_y(-time * 1.5f));
-                        w = mat4_multiply(w, mat4_rotation_x(time * 0.3f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    {
-                        float orbit_radius = 12.5f;
-                        float orbit_speed = 0.4f;
-                        float angle = time * orbit_speed + 3.0f * PI / 2.0f;
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){orbit_radius * cosf(angle), 0.3f * sinf(time * 1.5f), orbit_radius * sinf(angle)}));
-                        w = mat4_multiply(w, mat4_rotation_y(time * 1.0f));
-                        w = mat4_multiply(w, mat4_rotation_z(sinf(time * 0.5f) * 0.5f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, skull_count * sizeof(Matrix4x4), skull_instances);
-                    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_skull.vertex_count, skull_count);
-                }
-
-                glUseProgram(0);
-                glBindVertexArray(0);
-            } break;
-
-            case MODE_MULTIPLE_MODELS: {
-                glDisable(GL_BLEND);
-                glEnable(GL_DEPTH_TEST);
-                glDepthFunc(GL_LESS);
-                glDisable(GL_CULL_FACE);
-                glFrontFace(GL_CCW);
-
-                glUseProgram(shaders->obj_instanced.id);
-                glUniformMatrix4fv(shaders->obj_instanced.view, 1, false, view.m);
-                glUniformMatrix4fv(shaders->obj_instanced.proj, 1, false, proj.m);
-
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture_skull);
-                glUniform1i(shaders->obj_instanced.texture, 0);
-
-                {
-                    Matrix4x4 skull_instances[8];
-                    int skull_count = 0;
-
-                    {
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){0.0f, 0.0f, 0.0f}));
-                        w = mat4_multiply(w, mat4_rotation_y(time * 1.0f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.03f, 0.03f, 0.03f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    {
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){-3.0f, 0.0f, 0.0f}));
-                        w = mat4_multiply(w, mat4_rotation_y(time * 2.5f));
-                        w = mat4_multiply(w, mat4_rotation_x(time * 1.0f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    {
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){3.0f, 0.0f, 0.0f}));
-                        w = mat4_multiply(w, mat4_rotation_y(-time * 0.5f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.04f, 0.04f, 0.04f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    {
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){0.0f, 3.0f, 0.0f}));
-                        w = mat4_multiply(w, mat4_rotation_x(PI));
-                        w = mat4_multiply(w, mat4_rotation_y(time * 1.5f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.025f, 0.025f, 0.025f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    {
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){0.0f, -2.5f, 0.0f}));
-                        w = mat4_multiply(w, mat4_rotation_z(PI));
-                        w = mat4_multiply(w, mat4_rotation_y(-time * 2.0f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.022f, 0.022f, 0.022f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    {
-                        float bob = sinf(time * 2.0f) * 0.5f;
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){-2.0f, bob, 2.0f}));
-                        w = mat4_multiply(w, mat4_rotation_y(time * 1.8f));
-                        w = mat4_multiply(w, mat4_rotation_z(sinf(time) * 0.3f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    {
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){2.0f, 1.0f, 2.0f}));
-                        w = mat4_multiply(w, mat4_rotation_x(PI / 4.0f));
-                        w = mat4_multiply(w, mat4_rotation_y(-time * 1.2f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.028f, 0.028f, 0.028f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    {
-                        float radius = 2.5f;
-                        float angle = time * 0.8f;
-                        float x = radius * cosf(angle);
-                        float z = -radius * sinf(angle);
-                        Matrix4x4 w = mat4_identity();
-                        w = mat4_multiply(w, mat4_translation((Vector3){x, 0.5f, z}));
-                        w = mat4_multiply(w, mat4_rotation_y(angle + PI / 2.0f));
-                        w = mat4_multiply(w, mat4_scale((Vector3){0.02f, 0.02f, 0.02f}));
-                        skull_instances[skull_count++] = w;
-                    }
-
-                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, skull_count * sizeof(Matrix4x4), skull_instances);
-                    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_skull.vertex_count, skull_count);
-                }
-
-                glUseProgram(0);
-                glBindVertexArray(0);
-            } break;
-
-            case MODE_LIT_SCENE: {
-                glDisable(GL_BLEND);
-                glEnable(GL_DEPTH_TEST);
-                glDepthFunc(GL_LESS);
-                glDisable(GL_CULL_FACE);
-                glFrontFace(GL_CCW);
-
-                // Позиции источников света (статичные)
-                Vector3 pointLightPosition = {4.0f, 3.0f, 4.0f};
-                Vector3 spotLightPosition = {0.0f, 5.0f, -3.0f};
-                Vector3 spotLightDir = {0.0f, -1.0f, 0.3f};
-                Vector3 dirLightVisualPos = {-2.0f, 8.0f, -3.0f};
-
-                // Используем один шейдер для всех объектов с освещением
-                glUseProgram(shaders->lit_instanced.id);
-                glUniformMatrix4fv(shaders->lit_instanced.view, 1, false, view.m);
-                glUniformMatrix4fv(shaders->lit_instanced.proj, 1, false, proj.m);
-                glUniform3f(shaders->lit_instanced.viewPos, camera.position.x, camera.position.y, camera.position.z);
-
-                // Ambient освещение
-                glUniform3f(shaders->lit_instanced.ambientColor, 0.15f, 0.15f, 0.18f);
-
-                // Выбор модели освещения
-                glUniform1i(shaders->lit_instanced.lightingModel, lighting_model);
-
-                // Точечный источник света (лампочка)
-                glUniform1i(shaders->lit_instanced.pointLightEnabled, 1);
-                glUniform3f(shaders->lit_instanced.pointLightPos, pointLightPosition.x, pointLightPosition.y, pointLightPosition.z);
-                glUniform3f(shaders->lit_instanced.pointLightColor, 0.0f, 0.0f, 1.0f);
-                glUniform1f(shaders->lit_instanced.pointLightIntensity, 1.0f);
-                glUniform1f(shaders->lit_instanced.pointLightConstant, 1.0f);
-                glUniform1f(shaders->lit_instanced.pointLightLinear, 0.09f);
-                glUniform1f(shaders->lit_instanced.pointLightQuadratic, 0.032f);
-
-                // Направленный источник света (солнце/луна)
-                glUniform1i(shaders->lit_instanced.dirLightEnabled, 1);
-                glUniform3f(shaders->lit_instanced.dirLightDirection, -0.2f, -1.0f, -0.3f);
-                glUniform3f(shaders->lit_instanced.dirLightColor, 1.0f, 0.4f, 0.6f);
-                glUniform1f(shaders->lit_instanced.dirLightIntensity, 0.7f);
-
-                // Прожекторный источник света
-                glUniform1i(shaders->lit_instanced.spotLightEnabled, 1);
-                glUniform3f(shaders->lit_instanced.spotLightPos, spotLightPosition.x, spotLightPosition.y, spotLightPosition.z);
-                glUniform3f(shaders->lit_instanced.spotLightDirection, spotLightDir.x + 0.05f, spotLightDir.y + 0.9f, spotLightDir.z);
-                glUniform3f(shaders->lit_instanced.spotLightColor, 0.0f, 1.0f, 0.0f);
-                glUniform1f(shaders->lit_instanced.spotLightIntensity, 3.0f);
-                glUniform1f(shaders->lit_instanced.spotLightCutOff, cosf(1.0f * DEG2RAD));
-                glUniform1f(shaders->lit_instanced.spotLightOuterCutOff, cosf(4.0f * DEG2RAD));
-                glUniform1f(shaders->lit_instanced.spotLightConstant, 1.0f);
-                glUniform1f(shaders->lit_instanced.spotLightLinear, 0.09f);
-                glUniform1f(shaders->lit_instanced.spotLightQuadratic, 0.032f);
-
-                // Объект 1: Корона (центр сцены) - через instancing с count=1
-                {
-                    glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, texture_corona);
-                    glUniform1i(shaders->lit_instanced.texture, 0);
-
-                    Matrix4x4 instance[1];
-                    instance[0] = mat4_identity();
-                    instance[0] = mat4_multiply(instance[0], mat4_translation((Vector3){0.0f, 0.0f, 0.0f}));
-                    instance[0] = mat4_multiply(instance[0], mat4_rotation_x(DEG2RAD * -90.0f));
-                    instance[0] = mat4_multiply(instance[0], mat4_scale((Vector3){0.08f, 0.08f, 0.08f}));
-
-                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Matrix4x4), instance);
-                    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-                    glBindVertexArray(model_corona.vao);
-                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_corona.vertex_count, 1);
-                }
-
-                // Объект 2: Сфинкс
-                {
-                    glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, texture_sphinx);
-                    glUniform1i(shaders->lit_instanced.texture, 0);
-
-                    Matrix4x4 instance[1];
-                    instance[0] = mat4_identity();
-                    instance[0] = mat4_multiply(instance[0], mat4_translation((Vector3){1.35f, 0.0f, 7.6f}));
-                    instance[0] = mat4_multiply(instance[0], mat4_rotation_x(-PI / 2.0f));
-                    instance[0] = mat4_multiply(instance[0], mat4_rotation_z(DEG2RAD * 180.0f));
-                    instance[0] = mat4_multiply(instance[0], mat4_scale((Vector3){0.003f, 0.003f, 0.003f}));
-
-                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Matrix4x4), instance);
-                    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-                    glBindVertexArray(model_sphinx.vao);
-                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_sphinx.vertex_count, 1);
-                }
-
-                // Объект 3: Череп
-                {
-                    glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, texture_skull);
-                    glUniform1i(shaders->lit_instanced.texture, 0);
-
-                    Matrix4x4 instance[1];
-                    instance[0] = mat4_identity();
-                    instance[0] = mat4_multiply(instance[0], mat4_translation((Vector3){1.27f, 3.7f, 5.0f}));
-                    instance[0] = mat4_multiply(instance[0], mat4_rotation_x(-PI / 2.0f));
-                    instance[0] = mat4_multiply(instance[0], mat4_rotation_z(DEG2RAD * 180.0f));
-                    instance[0] = mat4_multiply(instance[0], mat4_scale((Vector3){0.1f, 0.1f, 0.1f}));
-
-                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Matrix4x4), instance);
-                    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-                    glBindVertexArray(model_skull.vao);
-                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_skull.vertex_count, 1);
-                }
-
-                // Бомбы - несколько инстансов
-                {
-                    glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, texture_bomb);
-                    glUniform1i(shaders->lit_instanced.texture, 0);
-
-                    Matrix4x4 instances[5];
-                    int count = 0;
-
-                    Matrix4x4 w = mat4_identity();
-                    w = mat4_multiply(w, mat4_translation((Vector3){1.27f, 8.0f, 5.0f}));
-                    w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
-                    instances[count++] = w;
-
-                    w = mat4_identity();
-                    w = mat4_multiply(w, mat4_translation((Vector3){-1.73f, 8.0f, 5.0f}));
-                    w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
-                    instances[count++] = w;
-
-                    w = mat4_identity();
-                    w = mat4_multiply(w, mat4_translation((Vector3){4.27f, 8.0f, 5.0f}));
-                    w = mat4_multiply(w, mat4_scale((Vector3){0.018f, 0.018f, 0.018f}));
-                    instances[count++] = w;
-
-                    glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
-                    glBufferSubData(GL_ARRAY_BUFFER, 0, count * sizeof(Matrix4x4), instances);
-                    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-                    glBindVertexArray(model_bomb.vao);
-                    glDrawArraysInstanced(GL_TRIANGLES, 0, model_bomb.vertex_count, count);
-                }
-
-                glUseProgram(0);
-                glBindVertexArray(0);
-            } break;
+        glDisable(GL_CULL_FACE);
+        glFrontFace(GL_CCW);
+
+        {
+            glUseProgram(terrain_shader);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, terrain_texture);
+            glUniform1i(glGetUniformLocation(terrain_shader, "heightmap"), 0);
+
+            glUniform1f(glGetUniformLocation(terrain_shader, "heightScale"),terrain_height_scale);
+            glUniform1f(glGetUniformLocation(terrain_shader, "terrainSize"),terrain_world_size);
+            glUniform3f(glGetUniformLocation(terrain_shader, "lightDir"),-0.3f, -1.0f, -0.2f);
+            glUniform3f(glGetUniformLocation(terrain_shader, "lightColor"), 1.0f, 1.0f, 1.0f);
+            glUniform3f(glGetUniformLocation(terrain_shader, "viewPos"),camera.position.x,camera.position.y,camera.position.z);
+
+            glUniformMatrix4fv(glGetUniformLocation(terrain_shader, "view"),1, GL_FALSE, view.m);
+            glUniformMatrix4fv(glGetUniformLocation(terrain_shader, "proj"),1, GL_FALSE, proj.m);
+
+            glBindVertexArray(terrain_vao);
+            glDrawElements(GL_TRIANGLES, terrain_index_count, GL_UNSIGNED_INT, 0);
+            glBindVertexArray(0);
         }
 
-        /*switch (figure) {
-            case CUBE: {
-                glBindVertexArray(vaos[CUBE_VAO]);
-                glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(cube_vertices));
-            } break;
+        {
+            glUseProgram(shaders->lit_instanced.id);
+            glUniformMatrix4fv(shaders->lit_instanced.view, 1, false, view.m);
+            glUniformMatrix4fv(shaders->lit_instanced.proj, 1, false, proj.m);
+            glUniform3f(shaders->lit_instanced.viewPos, camera.position.x, camera.position.y, camera.position.z);
 
-            case TETRAHEDRON: {
-                glBindVertexArray(vaos[TETRAHEDRON_VAO]);
-                glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(tetrahedron_vertices));
-            } break;
+            glUniform3f(shaders->lit_instanced.ambientColor, 0.7f, 0.7f, 0.7f);
+            glUniform1i(shaders->lit_instanced.dirLightEnabled, 1);
+            glUniform3f(shaders->lit_instanced.dirLightDirection, -1.2f, -1.0f, -0.3f);
+            glUniform3f(shaders->lit_instanced.dirLightColor, 0.6f, 0.7f, 1.0f);
+            glUniform1f(shaders->lit_instanced.dirLightIntensity, 5.2f);
+        }
 
-            case CIRCLE: {
-                glBindVertexArray(vaos[CIRCLE_VAO]);
-                glDrawArrays(GL_TRIANGLE_FAN, 0, ARRAY_LEN(circle_vertices));
-            } break;
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-            case TEXTURED_CUBE: {
-                glBindVertexArray(vaos[TEXTURED_CUBE_VAO]);
-                glDrawArrays(GL_TRIANGLES, 0, ARRAY_LEN(textured_cube_vertices));
-            } break;
-        }*/
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_tree);
+            glUniform1i(shaders->lit_instanced.texture, 0);
+            glUniform1f(shaders->lit_instanced.objectAlpha, 1.0f);
+
+            Matrix4x4 instance[1];
+            instance[0] = mat4_identity();
+            instance[0] = mat4_multiply(instance[0], mat4_translation((Vector3){0.0f, 6.2f, 0.0f}));
+            instance[0] = mat4_multiply(instance[0], mat4_scale((Vector3){1.4f, 1.4f, 1.4f}));
+
+            glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Matrix4x4), instance);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+            glBindVertexArray(model_tree.vao);
+            glDrawArraysInstanced(GL_TRIANGLES, 0, model_tree.vertex_count, 1);
+        }
+
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_sledge);
+            glUniform1i(shaders->lit_instanced.texture, 0);
+            glUniform1f(shaders->lit_instanced.objectAlpha, 1.0f);
+
+            Matrix4x4 instance[1];
+            instance[0] = mat4_identity();
+            instance[0] = mat4_multiply(instance[0], mat4_translation(airship_pos));
+            instance[0] = mat4_multiply(instance[0],mat4_rotation_y(airship_rot.y - PI / 2.0f));
+            instance[0] = mat4_multiply(instance[0],mat4_scale((Vector3) { 0.01f, 0.01f, 0.01f }));
+
+            glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Matrix4x4), instance);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+            glBindVertexArray(model_sledge.vao);
+            glDrawArraysInstanced(GL_TRIANGLES,0,model_sledge.vertex_count,1);
+        }
+
+        // Подарки
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_gift);
+            glUniform1i(shaders->lit_instanced.texture, 0);
+            glUniform1f(shaders->lit_instanced.objectAlpha, 1.0f);
+
+            glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+            glBufferSubData(GL_ARRAY_BUFFER,0, GIFT_COUNT * sizeof(Matrix4x4), skull_instances);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+            glBindVertexArray(model_gift.vao);
+            glDrawArraysInstanced(GL_TRIANGLES,0,model_gift.vertex_count,GIFT_COUNT);
+        }
+
+        //Дома
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_house);
+            glUniform1i(shaders->lit_instanced.texture, 0);
+            glUniform1f(shaders->lit_instanced.objectAlpha, 1.0f);
+
+            glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+            glBufferSubData(GL_ARRAY_BUFFER,0,HOUSE_COUNT * sizeof(Matrix4x4),house_instances);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+            glBindVertexArray(model_house.vao);
+            glDrawArraysInstanced(GL_TRIANGLES,0,model_house.vertex_count,HOUSE_COUNT);
+        }
+
+        //Лавки
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_bench);
+            glUniform1i(shaders->lit_instanced.texture, 0);
+            glUniform1f(shaders->lit_instanced.objectAlpha, 1.0f);
+
+            glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, BENCH_COUNT * sizeof(Matrix4x4), bench_instances);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+            glBindVertexArray(model_bench.vao);
+            glDrawArraysInstanced(GL_TRIANGLES, 0, model_bench.vertex_count, BENCH_COUNT);
+        }
+
+        // Воздушный змей
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_kite);
+            glUniform1i(shaders->lit_instanced.texture, 0);
+            glUniform1f(shaders->lit_instanced.objectAlpha, 1.0f);
+
+            glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, KITE_COUNT * sizeof(Matrix4x4), kite_instances);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+            glBindVertexArray(model_kite.vao);
+            glDrawArraysInstanced(GL_TRIANGLES, 0, model_kite.vertex_count, KITE_COUNT);
+        }
+
+        // Облака
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_cloud);
+            glUniform1i(shaders->lit_instanced.texture, 0);
+            glUniform1f(shaders->lit_instanced.objectAlpha, 0.9f);
+
+            glBindBuffer(GL_ARRAY_BUFFER, instance_vbo);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, CLOUD_COUNT * sizeof(Matrix4x4), cloud_instances);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+            glBindVertexArray(model_cloud .vao);
+            glDrawArraysInstanced(GL_TRIANGLES, 0, model_cloud.vertex_count, CLOUD_COUNT);
+        }
 
         glUseProgram(0);
         glBindVertexArray(0);
@@ -1130,31 +578,28 @@ int main() {
         program->mouse.move = (Vector2) {0};
         glfwPollEvents();
 
-        time = glfwGetTime();
-        delta_time = time - last_frame_time;
-        last_frame_time = time;
+        current_time = glfwGetTime();
+        delta_time = current_time - last_frame_time;
+        last_frame_time = current_time;
     }
 
-    // Впервые в жизни я уберу за собой!
+    free_obj_model(&model_house);
+    free_obj_model(&model_tree);
+    free_obj_model(&model_sledge);
+    free_obj_model(&model_gift);
+    free_obj_model(&model_kite);
+    free_obj_model(&model_cloud);
+    free_obj_model(&model_bench);
 
-    free_obj_model(&model_bomb);
-    free_obj_model(&model_corona);
-    free_obj_model(&model_sphinx);
-    free_obj_model(&model_skull);
-
-    glDeleteTextures(1, &texture_corona);
-    glDeleteTextures(1, &texture_sphinx);
-    glDeleteTextures(1, &texture_skull);
-    glDeleteTextures(1, &texture_bomb);
-
-    glDeleteProgram(shaders->gradient.id);
-    glDeleteProgram(shaders->uniform_flat_color.id);
-    glDeleteProgram(shaders->flat_color.id);
-    glDeleteProgram(shaders->obj_instanced.id);
+    glDeleteTextures(1, &texture_tree);
+    glDeleteTextures(1, &texture_sledge);
+    glDeleteTextures(1, &texture_gift);
+    glDeleteTextures(1, &texture_kite);
+    glDeleteTextures(1, &texture_cloud);
+    glDeleteTextures(1, &texture_house);
+    glDeleteTextures(1, &texture_bench);
     glDeleteProgram(shaders->lit_instanced.id);
     glDeleteBuffers(1, &instance_vbo);
-    glDeleteBuffers(VERTEX_BUFFERS_COUNT, vertex_buffers);
-    glDeleteVertexArrays(VAOS_COUNT, vaos);
 
     close_window(program);
 }
@@ -1206,22 +651,6 @@ int compile_shader(const char *shader_path) {
     return shader;
 }
 
-GLuint create_solid_color_texture(unsigned char r, unsigned char g, unsigned char b) {
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    unsigned char pixel[3] = {r, g, b};
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, pixel);
-
-    return texture;
-}
-
 GLuint load_texture_from_file(const char *path) {
     GLuint texture;
     glGenTextures(1, &texture);
@@ -1251,6 +680,17 @@ GLuint load_texture_from_file(const char *path) {
     return texture;
 }
 
+// Вспомогательная функция для загрузки модели с проверкой нескольких путей
+bool load_obj_model_try_paths(const char** paths, int path_count, OBJModel* model, const char* model_name) {
+    for (int i = 0; i < path_count; i++) {
+        if (load_obj_model(paths[i], model)) {
+            return true;
+        }
+    }
+    fprintf(stderr, "не удалось загрузить %s ни из одного пути!\n", model_name);
+    return false;
+}
+
 void opengl_debug_message_callback(
     GLenum source, GLenum type, GLuint id,
     GLenum severity, GLsizei length, const GLchar *message,
@@ -1274,49 +714,6 @@ void opengl_debug_message_callback(
     }
 };
 
-void init_circle_vertices() {
-    circle_vertices[0].position.x = 0.0f;
-    circle_vertices[0].position.y = 0.0f;
-    circle_vertices[0].position.z = 0.0f;
-    circle_vertices[0].color.r = 1.0f;
-    circle_vertices[0].color.g = 1.0f;
-    circle_vertices[0].color.b = 1.0f;
-
-    for (int i = 0; i <= CIRCLE_SEGMENTS; i++) {
-        float angle = 2.0f * PI * i / CIRCLE_SEGMENTS;
-
-        circle_vertices[i + 1].position.x = cosf(angle);
-        circle_vertices[i + 1].position.y = sinf(angle);
-        circle_vertices[i + 1].position.z = 0.0f;  
-
-        float hue = (float)i / CIRCLE_SEGMENTS;
-
-        float r, g, b;
-        hue_to_rgb(hue, &r, &g, &b);
-
-        circle_vertices[i + 1].color.r = r;
-        circle_vertices[i + 1].color.g = g;
-        circle_vertices[i + 1].color.b = b;
-    }
-}
-
-void hue_to_rgb(float hue, float* r, float* g, float* b) {
-    float h = hue * 6.0f;  
-    int sector = (int)h;
-    float fraction = h - sector;
-
-    float q = 1.0f - fraction;
-    float t = fraction;
-
-    switch (sector % 6) {
-    case 0: *r = 1.0f; *g = t; *b = 0.0f; break;
-    case 1: *r = q; *g = 1.0f; *b = 0.0f; break;
-    case 2: *r = 0.0f; *g = 1.0f; *b = t; break;
-    case 3: *r = 0.0f; *g = q; *b = 1.0f; break;
-    case 4: *r = t; *g = 0.0f; *b = 1.0f; break;
-    case 5: *r = 1.0f; *g = 0.0f; *b = q; break;
-    }
-}
 
 float clamp(float x, float low, float high) {
     if (x < low) {
@@ -1328,18 +725,142 @@ float clamp(float x, float low, float high) {
     return x;
 }
 
-Vector3 direction_from_pitch_yaw(float pitch, float yaw) {
-    Vector3 direction = {0};
+float lerp_angle(float a, float b, float t) {
+    float diff = b - a;
 
-    direction.x = cosf(pitch) * sinf(yaw);
-    direction.y = sinf(pitch);
-    direction.z = cosf(pitch) * cosf(yaw);
+    while (diff > PI)  diff -= 2.0f * PI;
+    while (diff < -PI) diff += 2.0f * PI;
 
-    return vec3_normalize(direction);
+    return a + diff * t;
 }
 
-void camera_update(Camera *camera) {
-    camera->forward = direction_from_pitch_yaw(camera->pitch, camera->yaw);
-    camera->right = vec3_cross((Vector3){ 0, 1, 0 }, camera->forward);
-    camera->up = vec3_cross(camera->forward, camera->right);
+float randf(float min, float max) {
+    return min + (float)rand() / (float)RAND_MAX * (max - min);
+}
+
+bool can_place(Vector3 p, float radius) {
+    for (int i = 0; i < placed_count; i++) {
+        Vector3 d = vec3_subtract(p, all_positions[i]);
+        float dist2 = d.x * d.x + d.z * d.z;
+
+        float min_dist = radius + all_radii[i];
+        if (dist2 < min_dist * min_dist)
+            return false;
+    }
+    return true;
+}
+
+void create_terrain(int size, float scale) {
+    const int VERTS = size * size;
+    const int INDS = (size - 1) * (size - 1) * 6;
+
+    float* vertices = malloc(sizeof(float) * VERTS * 5);
+    unsigned int* indices = malloc(sizeof(unsigned int) * INDS);
+
+    int v = 0;
+    for (int z = 0; z < size; z++) {
+        for (int x = 0; x < size; x++) {
+            float half = (size - 1) * scale * 0.5f;
+
+            vertices[v++] = (float)x * scale - half;
+            vertices[v++] = 0.0f;
+            vertices[v++] = (float)z * scale - half;
+            vertices[v++] = (float)x / (size - 1);
+            vertices[v++] = (float)z / (size - 1);
+        }
+    }
+
+    int i = 0;
+    for (int z = 0; z < size - 1; z++) {
+        for (int x = 0; x < size - 1; x++) {
+            int a = z * size + x;
+            int b = a + size;
+            int c = a + 1;
+            int d = b + 1;
+
+            indices[i++] = a;
+            indices[i++] = b;
+            indices[i++] = c;
+            indices[i++] = c;
+            indices[i++] = b;
+            indices[i++] = d;
+        }
+    }
+
+    terrain_index_count = INDS;
+
+    glGenVertexArrays(1, &terrain_vao);
+    glGenBuffers(1, &terrain_vbo);
+    glGenBuffers(1, &terrain_ebo);
+
+    glBindVertexArray(terrain_vao);
+
+    glBindBuffer(GL_ARRAY_BUFFER, terrain_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * VERTS * 5, vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrain_ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * INDS, indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+
+    free(vertices);
+    free(indices);
+}
+
+GLuint load_heightmap_texture(const char* path)
+{
+    GLuint texture = 0;
+
+    stbi_set_flip_vertically_on_load(false);
+
+    terrain_heightmap = stbi_load(path,&terrain_w,&terrain_h, NULL,STBI_grey);
+
+    if (!terrain_heightmap) {
+        fprintf(stderr, "FAILED TO LOAD HEIGHTMAP: %s\n", path);
+        fprintf(stderr, "STB ERROR: %s\n", stbi_failure_reason());
+        return 0;
+    }
+
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D,0,GL_R8,terrain_w,terrain_h,0,GL_RED,GL_UNSIGNED_BYTE,terrain_heightmap);
+
+    return texture;
+}
+
+float terrain_height(float x, float z)
+{
+    float terrain_world_size = (terrain_size - 1) * terrain_scale;
+    float half = terrain_world_size * 0.5f;
+
+    float u = (x + half) / terrain_world_size;
+    float v = (z + half) / terrain_world_size;
+
+    if (u < 0.0f || u > 1.0f || v < 0.0f || v > 1.0f)
+        return 0.0f;
+
+    float hx = u * (terrain_w - 1);
+    float hz = v * (terrain_h - 1);
+
+    int x0 = (int)hx;
+    int z0 = (int)hz;
+
+    int index = z0 * terrain_w + x0;
+    float h = terrain_heightmap[index] / 255.0f;
+
+    return h * terrain_height_scale;
 }

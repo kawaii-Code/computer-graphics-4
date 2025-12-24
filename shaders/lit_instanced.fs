@@ -34,17 +34,21 @@ uniform float spotLightOuterCutOff;
 uniform float spotLightConstant;
 uniform float spotLightLinear;
 uniform float spotLightQuadratic;
+uniform float objectAlpha;
 
 const float PI = 3.14159265359;
 
-vec3 phongLighting(vec3 N, vec3 V, vec3 L, vec3 lightColor)
+vec3 phongLighting(
+    vec3 N, vec3 V, vec3 L,
+    vec3 lightColor,
+    vec3 albedo
+)
 {
     vec3 R = reflect(-L, N);
-
     float diff = max(dot(N, L), 0.0);
     float spec = pow(max(dot(V, R), 0.0), 32.0);
 
-    vec3 diffuse  = diff * lightColor;
+    vec3 diffuse  = diff * lightColor * albedo;
     vec3 specular = spec * lightColor;
 
     return diffuse + specular;
@@ -64,6 +68,7 @@ vec3 toonLighting(vec3 N, vec3 L, vec3 lightColor)
 }
 
 
+// Модель Ашикмина-Ширли
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
@@ -124,7 +129,7 @@ void main()
         vec3 lightResult;
 
         if (lightingModel == 0)
-            lightResult = phongLighting(N, V, L, pointLightColor);
+            lightResult = phongLighting(N, V, L, pointLightColor, albedo);
         else if (lightingModel == 1)
             lightResult = toonLighting(N, L, pointLightColor);
         else
@@ -139,7 +144,7 @@ void main()
         vec3 lightResult;
 
         if (lightingModel == 0)
-            lightResult = phongLighting(N, V, L, dirLightColor);
+            lightResult = phongLighting(N, V, L, pointLightColor, albedo);
         else if (lightingModel == 1)
             lightResult = toonLighting(N, L, dirLightColor);
         else
@@ -165,7 +170,7 @@ void main()
         vec3 lightResult;
 
         if (lightingModel == 0)
-            lightResult = phongLighting(N, V, L, spotLightColor);
+            lightResult = phongLighting(N, V, L, pointLightColor, albedo);
         else if (lightingModel == 1)
             lightResult = toonLighting(N, L, spotLightColor);
         else
@@ -174,5 +179,5 @@ void main()
         result += lightResult * attenuation * intensity * spotLightIntensity;
     }
 
-    FragColor = vec4(result, 1.0);
+    FragColor = vec4(result, objectAlpha);
 }
